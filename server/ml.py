@@ -1,83 +1,88 @@
 """
-ml.py — Phase 4: a scikit-learn price-prediction model, ISOLATED here.
+ml.py — scikit-learn price-prediction model.
 
-Pipeline overview:
-    features (brand, year, km, fuel_type, transmission)  -->  target (price TRY)
+Feature set (expanded):
+    brand, model, year, km, fuel_type, transmission,
+    city, body_type, has_damage  -->  target: listed_price (TRY)
 
-We train a RandomForestRegressor wrapped in a scikit-learn Pipeline:
-    ColumnTransformer
-      - OneHotEncoder on categorical columns (brand, fuel_type, transmission)
-      - passthrough on numeric columns (year, km)
-    -> RandomForestRegressor
+Algorithm: HistGradientBoostingRegressor
+  - Handles high-cardinality categoricals (model names) via OrdinalEncoder
+  - Natively tolerates NaN/None in numeric columns — no imputation needed
+  - Faster and more accurate than RandomForest on tabular data at this scale
 
-The model is persisted to model.joblib next to this file and lazily loaded at
-predict time.
-
-Why a synthetic bootstrap?  In the real product the model trains on the rows we
-collect in SQLite over time. Early on we have almost no rows, and a model needs
-LOTS of data. So when the DB has too few rows, we generate a realistic synthetic
-Turkish used-car dataset to bootstrap a usable model. As real data accumulates,
-retraining on it takes over. (This is also our teaching example for overfitting,
-train/test split, and "why we need lots of data".)
+The model is persisted to model.joblib and lazily loaded at predict time.
+When the DB has too few rows we scrape arabam.com; if that also fails we fall
+back to a synthetic bootstrap.
 
 CLI:
-    python ml.py export   # dump the DB rows to a pandas DataFrame (preview)
-    python ml.py train    # train the model and report train/test error
+    python ml.py export   # dump DB rows to stdout
+    python ml.py train    # train and report error metrics
 """
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OrdinalEncoder
 
 from database import Base, SessionLocal, engine
 from models import AnalysisRecord
 from scraper_arabam import scrape_arabam_listings
 
 MODEL_PATH = Path(__file__).parent / "model.joblib"
+MODEL_META_PATH = Path(__file__).parent / "model_meta.json"
 
-# The feature vector. CATEGORICAL = text buckets, NUMERIC = real numbers.
-CATEGORICAL = ["brand", "fuel_type", "transmission"]
-NUMERIC = ["year", "km"]
+CATEGORICAL = ["brand", "model", "fuel_type", "transmission", "city", "body_type"]
+NUMERIC = ["year", "km", "has_damage"]
 FEATURES = CATEGORICAL + NUMERIC
 TARGET = "listed_price"
 
-# Below this many usable rows in the DB, we bootstrap with synthetic data.
 MIN_REAL_ROWS = 50
 
 
 # ---------------------------------------------------------------------------
-# DATA EXPORT: SQLite -> pandas DataFrame  (Step 15)
+# DATA EXPORT
 # ---------------------------------------------------------------------------
 def export_dataframe() -> pd.DataFrame:
-    """Read every analysis row from SQLite into a pandas DataFrame.
-
-    Only rows where all features and the target are present are useful for
-    training, so we drop the rest.
-    """
-    # Ensure the table exists even when ml.py runs standalone (before the API
-    # has ever booted and created it).
     Base.metadata.create_all(bind=engine)
-
+    # Ensure new columns exist (idempotent — fails silently if already present)
+    from sqlalchemy import text as _text
+    with engine.begin() as _conn:
+        for _stmt in [
+            "ALTER TABLE analyses ADD COLUMN chronic_issues JSON NOT NULL DEFAULT '[]'",
+            "ALTER TABLE analyses ADD COLUMN user_consensus TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE analyses ADD COLUMN city TEXT",
+            "ALTER TABLE analyses ADD COLUMN body_type TEXT",
+            "ALTER TABLE analyses ADD COLUMN has_damage BOOLEAN",
+        ]:
+            try:
+                _conn.execute(_text(_stmt))
+            except Exception:
+                pass
     db = SessionLocal()
     try:
         rows = db.query(AnalysisRecord).all()
         data = [
             {
-                "brand": r.brand,
-                "fuel_type": r.fuel_type,
+                "brand":        r.brand,
+                "model":        r.model,
+                "fuel_type":    r.fuel_type,
                 "transmission": r.transmission,
-                "year": r.year,
-                "km": r.km,
+                "city":         r.city,
+                "body_type":    r.body_type,
+                "year":         r.year,
+                "km":           r.km,
+                "has_damage":   int(r.has_damage) if r.has_damage is not None else 0,
                 "listed_price": r.listed_price,
             }
             for r in rows
@@ -86,108 +91,88 @@ def export_dataframe() -> pd.DataFrame:
         db.close()
 
     df = pd.DataFrame(data, columns=FEATURES + [TARGET])
-    df = df.dropna(subset=FEATURES + [TARGET])
+    # Only require the core fields; new optional columns can be NaN
+    df = df.dropna(subset=["brand", "year", "km", TARGET])
     return df
 
 
 # ---------------------------------------------------------------------------
-# SYNTHETIC BOOTSTRAP DATA
+# SYNTHETIC BOOTSTRAP
 # ---------------------------------------------------------------------------
-# Rough 2024-era base prices (TRY) for a NEWEST-year, low-km example per brand.
-_BRAND_BASE = {
-    "Volkswagen": 1_300_000,
-    "Renault": 950_000,
-    "Fiat": 900_000,
-    "Ford": 1_150_000,
-    "Opel": 1_000_000,
-    "Toyota": 1_400_000,
-    "Honda": 1_300_000,
-    "Hyundai": 1_100_000,
-    "Peugeot": 980_000,
-    "BMW": 2_300_000,
-    "Mercedes-Benz": 2_500_000,
-    "Audi": 2_200_000,
-}
-_FUELS = ["Benzin", "Dizel", "LPG & Benzin", "Hibrit"]
-_TRANSMISSIONS = ["Manuel", "Otomatik"]
-
-
-def _synthetic_dataframe(n: int = 1500, seed: int = 42) -> pd.DataFrame:
-    """Generate a realistic-ish synthetic dataset to bootstrap the model."""
-    rng = np.random.default_rng(seed)
-    brands = list(_BRAND_BASE.keys())
-    current_year = 2024
-
-    rows = []
-    for _ in range(n):
-        brand = rng.choice(brands)
-        year = int(rng.integers(2008, current_year + 1))
-        km = int(rng.integers(0, 320_000))
-        fuel = rng.choice(_FUELS, p=[0.42, 0.40, 0.13, 0.05])
-        trans = rng.choice(_TRANSMISSIONS, p=[0.45, 0.55])
-
-        base = _BRAND_BASE[brand]
-        age = current_year - year
-        # ~5% depreciation per year (Turkish used cars hold value under inflation).
-        price = base * (0.95 ** age)
-        # Mileage penalty, capped so high-km cars don't collapse to nothing.
-        price *= max(0.70, 1 - (km / 300_000) * 0.25)
-        # Fuel / transmission adjustments.
-        price *= {"Benzin": 1.0, "Dizel": 1.06, "LPG & Benzin": 0.93, "Hibrit": 1.18}[fuel]
-        price *= 1.08 if trans == "Otomatik" else 1.0
-        # Random market noise.
-        price *= rng.normal(1.0, 0.07)
-
-        rows.append(
-            {
-                "brand": brand,
-                "fuel_type": fuel,
-                "transmission": trans,
-                "year": year,
-                "km": km,
-                "listed_price": int(max(120_000, price)),
-            }
-        )
-    return pd.DataFrame(rows, columns=FEATURES + [TARGET])
 
 
 # ---------------------------------------------------------------------------
-# TRAINING  (Steps 16 & 19)
+# TRAINING
 # ---------------------------------------------------------------------------
 def _build_pipeline() -> Pipeline:
-    """Categorical -> one-hot, numeric -> passthrough, then a RandomForest."""
+    """OrdinalEncoder for categoricals + HistGradientBoostingRegressor.
+
+    HistGBR advantages over RandomForest:
+    - Handles NaN natively in numeric columns (no imputer needed)
+    - Better accuracy on tabular data with mixed types
+    - OrdinalEncoder + HistGBR is the recommended combo for high-cardinality
+      categoricals (e.g. hundreds of distinct model names)
+
+    Categorical NaN strategy: fill with "unknown" before OrdinalEncoder so the
+    encoder always receives a valid string. Rows where city/body_type were not
+    scraped simply become their own "unknown" bucket.
+    """
+    cat_pipeline = Pipeline([
+        ("impute", SimpleImputer(strategy="constant", fill_value="unknown")),
+        ("encode", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)),
+    ])
     pre = ColumnTransformer(
         transformers=[
-            ("cat", OneHotEncoder(handle_unknown="ignore"), CATEGORICAL),
+            ("cat", cat_pipeline, CATEGORICAL),
             ("num", "passthrough", NUMERIC),
         ]
     )
-    model = RandomForestRegressor(n_estimators=200, max_depth=14, random_state=42)
-    return Pipeline([("prep", pre), ("rf", model)])
+    hgb = HistGradientBoostingRegressor(
+        max_iter=400,
+        max_depth=8,
+        learning_rate=0.05,
+        min_samples_leaf=20,
+        random_state=42,
+    )
+    return Pipeline([("prep", pre), ("hgb", hgb)])
 
 
 def train(verbose: bool = True) -> Pipeline:
-    """Train on real DB rows if we have enough, else fallback to scraping arabam.com."""
     import joblib
 
     df = export_dataframe()
     source = "database"
+
     if len(df) < MIN_REAL_ROWS:
-        print("Not enough DB rows. Scraping arabam.com for training data (this may take a minute)...")
-        scraped_data = scrape_arabam_listings(pages=15) # 15 pages * 20 cars = ~300 cars
+        print("Not enough DB rows. Scraping arabam.com for training data…")
+        scraped_data = scrape_arabam_listings()
         df_scraped = pd.DataFrame(scraped_data)
-        # We can still add some synthetic data to ensure all brands are covered,
-        # but let's stick to scraped data + existing DB data
         df = pd.concat([df, df_scraped], ignore_index=True)
-        # Drop duplicates or NAs if any
-        df = df.dropna(subset=FEATURES + [TARGET])
+        df = df.dropna(subset=["brand", "year", "km", TARGET])
         source = "arabam.com + database"
 
     if len(df) < 5:
-        # Extreme fallback if scraping completely failed
-        print("Scraping failed or returned too few rows, using synthetic fallback.")
-        df = _synthetic_dataframe(n=500)
-        source = "synthetic bootstrap"
+        raise RuntimeError(
+            "Yeterli eğitim verisi yok. Önce birkaç ilan analiz edin veya "
+            "arabam.com scraper'ının çalıştığından emin olun."
+        )
+
+    # Remove clearly bogus prices caused by scraper parsing errors.
+    # Turkish used car market: realistic range is 50K – 20M TRY.
+    before = len(df)
+    df = df[(df[TARGET] >= 50_000) & (df[TARGET] <= 20_000_000)]
+    removed = before - len(df)
+    if removed:
+        print(f"Removed {removed} rows with out-of-range prices.")
+
+    # Fill optional columns that may be absent in older DB rows
+    for col in ["model", "city", "body_type"]:
+        if col not in df.columns:
+            df[col] = None
+    if "has_damage" not in df.columns:
+        df["has_damage"] = 0
+    else:
+        df["has_damage"] = df["has_damage"].fillna(0).astype(int)
 
     X = df[FEATURES]
     y = df[TARGET]
@@ -201,60 +186,93 @@ def train(verbose: bool = True) -> Pipeline:
 
     joblib.dump(pipe, MODEL_PATH)
 
+    train_mae = mean_absolute_error(y_train, pipe.predict(X_train))
+    test_mae  = mean_absolute_error(y_test,  pipe.predict(X_test))
+    test_r2   = r2_score(y_test, pipe.predict(X_test))
+
+    meta = {
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "row_count":  len(df),
+        "source":     source,
+        "train_mae":  round(float(train_mae), 2),
+        "test_mae":   round(float(test_mae), 2),
+        "test_r2":    round(float(test_r2), 4),
+    }
+    MODEL_META_PATH.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
     if verbose:
-        train_mae = mean_absolute_error(y_train, pipe.predict(X_train))
-        test_mae = mean_absolute_error(y_test, pipe.predict(X_test))
-        test_r2 = r2_score(y_test, pipe.predict(X_test))
         print(f"Trained on {len(df)} rows ({source}).")
         print(f"  Train MAE: {train_mae:,.0f} TRY")
-        print(f"  Test  MAE: {test_mae:,.0f} TRY   (gap vs train ~ overfitting)")
-        print(f"  Test  R^2: {test_r2:.3f}")
+        print(f"  Test  MAE: {test_mae:,.0f} TRY")
+        print(f"  Test  R²:  {test_r2:.3f}")
         print(f"Saved model -> {MODEL_PATH}")
 
     return pipe
 
 
 # ---------------------------------------------------------------------------
-# PREDICTION (used by /api/predict and /api/analyze)
+# PREDICTION
 # ---------------------------------------------------------------------------
 _cached_model: Pipeline | None = None
 
 
 def _load_model() -> Pipeline | None:
-    """Lazily load model.joblib from disk, caching it in memory."""
     global _cached_model
     if _cached_model is not None:
         return _cached_model
     if not MODEL_PATH.exists():
         return None
     import joblib
-
     _cached_model = joblib.load(MODEL_PATH)
     return _cached_model
 
 
 def predict_price(
-    brand: str, year: int, km: int, fuel_type: str, transmission: str
+    brand: str,
+    year: int,
+    km: int,
+    fuel_type: str,
+    transmission: str,
+    model: str | None = None,
+    city: str | None = None,
+    body_type: str | None = None,
+    has_damage: bool | None = None,
 ) -> int | None:
-    """Predict a price from a feature vector. Returns None if no model exists yet."""
-    model = _load_model()
-    if model is None:
+    pipe = _load_model()
+    if pipe is None:
         return None
 
     X = pd.DataFrame(
-        [
-            {
-                "brand": brand,
-                "fuel_type": fuel_type,
-                "transmission": transmission,
-                "year": year,
-                "km": km,
-            }
-        ],
+        [{
+            "brand":        brand,
+            "model":        model,
+            "fuel_type":    fuel_type,
+            "transmission": transmission,
+            "city":         city,
+            "body_type":    body_type,
+            "year":         year,
+            "km":           km,
+            "has_damage":   int(has_damage) if has_damage is not None else 0,
+        }],
         columns=FEATURES,
     )
-    pred = model.predict(X)[0]
+    pred = pipe.predict(X)[0]
     return int(round(pred))
+
+
+# ---------------------------------------------------------------------------
+# MODEL METADATA
+# ---------------------------------------------------------------------------
+def get_model_info() -> dict:
+    if not MODEL_PATH.exists():
+        return {"trained": False}
+    meta = {"trained": True}
+    if MODEL_META_PATH.exists():
+        try:
+            meta.update(json.loads(MODEL_META_PATH.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    return meta
 
 
 # ---------------------------------------------------------------------------

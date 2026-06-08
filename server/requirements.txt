@@ -10,3 +10,4 @@ requests
 scikit-learn
 pandas
 joblib
+python-telegram-bot

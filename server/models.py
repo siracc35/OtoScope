@@ -12,7 +12,7 @@ KEY DISTINCTION (we will go deeper later):
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, JSON, Column, DateTime, Integer, String, Text
 from sqlalchemy.sql import func
 
 from database import Base
@@ -46,6 +46,9 @@ class AnalysisRecord(Base):
     fuel_type = Column(String, nullable=True)
     transmission = Column(String, nullable=True)
     listed_price = Column(Integer, nullable=True)
+    city = Column(String, nullable=True)
+    body_type = Column(String, nullable=True)
+    has_damage = Column(Boolean, nullable=True)
 
     # --- analysis results ---
     verdict = Column(String, nullable=False)
@@ -107,6 +110,9 @@ class ListingData(BaseModel):
     fuel_type: str | None = Field(None, description="Fuel type, e.g. Diesel")
     transmission: str | None = Field(None, description="Transmission, e.g. Automatic")
     listed_price: int | None = Field(None, description="Asking price in the listing (TRY)")
+    city: str | None = Field(None, description="City where the car is listed, e.g. İstanbul")
+    body_type: str | None = Field(None, description="Body type: Sedan, Hatchback, SUV, Pickup, Coupe, MPV, Station")
+    has_damage: bool | None = Field(None, description="True if the listing mentions any accident/damage record")
 
 
 
@@ -164,6 +170,9 @@ class HistoryItem(BaseModel):
     fuel_type: str | None
     transmission: str | None
     listed_price: int | None
+    city: str | None
+    body_type: str | None
+    has_damage: bool | None
     verdict: str
     opportunity_score: int
     market_low: int
@@ -195,10 +204,14 @@ class PredictRequest(BaseModel):
     """The feature vector our model needs to predict a price."""
 
     brand: str
+    model: str | None = None
     year: int
     km: int
     fuel_type: str
     transmission: str
+    city: str | None = None
+    body_type: str | None = None
+    has_damage: bool | None = None
 
 
 class PredictResponse(BaseModel):
@@ -215,3 +228,71 @@ class UsageStatus(BaseModel):
     global_used: int = Field(..., description="Analyses all users ran today")
     global_limit: int = Field(..., description="Global daily cap")
     exempt: bool = Field(False, description="True if this caller bypasses the limits")
+
+
+# ===========================================================================
+# WATCHLIST — saved/favourite analyses
+# ===========================================================================
+class WatchlistRecord(Base):
+    __tablename__ = "watchlist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    analysis_id = Column(Integer, nullable=False, index=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WatchlistItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    analysis_id: int
+    note: str | None
+    created_at: datetime
+
+
+class WatchlistAddRequest(BaseModel):
+    analysis_id: int
+    note: str | None = None
+
+
+# ===========================================================================
+# TRENDS — price history aggregation
+# ===========================================================================
+class TrendPoint(BaseModel):
+    month: str
+    avg_price: int
+    count: int
+
+
+class TrendSeries(BaseModel):
+    brand: str
+    model: str | None
+    points: list[TrendPoint]
+
+
+# ===========================================================================
+# ML MODEL INFO — training metadata
+# ===========================================================================
+class ModelInfo(BaseModel):
+    trained: bool
+    row_count: int | None = None
+    train_mae: float | None = None
+    test_mae: float | None = None
+    test_r2: float | None = None
+    source: str | None = None
+    trained_at: str | None = None
+
+
+# ===========================================================================
+# BATCH ANALYSIS
+# ===========================================================================
+class BatchRequest(BaseModel):
+    texts: list[str] = Field(..., min_length=1, max_length=10)
+
+
+class BatchResultItem(BaseModel):
+    index: int
+    success: bool
+    result: AnalysisResult | None = None
+    error: str | None = None

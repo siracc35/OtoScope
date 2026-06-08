@@ -58,8 +58,12 @@ listing and you produce a rigorous valuation.
 
 Your tasks:
 1. EXTRACT the structured facts: brand, model, year, km, fuel_type, transmission,
-   and the listed_price (asking price). If a field is genuinely absent from the
-   text, set it to null. NEVER invent values that are not supported by the text.
+   listed_price (asking price), city (the city where the car is located),
+   body_type (one of: Sedan, Hatchback, SUV, Pickup, Coupe, MPV, Station), and
+   has_damage (true if the listing mentions any accident history, bodywork damage,
+   or damage record — "hasar kayıtlı", "boyalı", "değişen" etc.; false otherwise).
+   If a field is genuinely absent from the text, set it to null.
+   NEVER invent values that are not supported by the text.
 2. ESTIMATE a realistic market price RANGE in Turkish Lira (TRY) for this exact
    car, based on its segment, model year, mileage, and any condition signals.
    market_low and market_high bound a typical fair transaction price.

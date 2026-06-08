@@ -60,3 +60,43 @@ export function scrapeUrl(url) {
 export function getUsage() {
   return request("/api/usage", { method: "GET" });
 }
+
+// --- Watchlist ---
+export function getWatchlist() {
+  return request("/api/watchlist", { method: "GET" });
+}
+
+export function addToWatchlist(analysis_id, note = null) {
+  return request("/api/watchlist", {
+    method: "POST",
+    body: JSON.stringify({ analysis_id, note }),
+  });
+}
+
+export function removeFromWatchlist(watchlist_item_id) {
+  return fetch(`${API_BASE}/api/watchlist/${watchlist_item_id}`, { method: "DELETE" });
+}
+
+export function removeFromWatchlistByAnalysis(analysis_id) {
+  return fetch(`${API_BASE}/api/watchlist/by-analysis/${analysis_id}`, { method: "DELETE" });
+}
+
+// --- Trends ---
+export function getTrends(brand) {
+  const q = brand ? `?brand=${encodeURIComponent(brand)}` : "";
+  return request(`/api/trends${q}`, { method: "GET" });
+}
+
+export function getTrendBrands() {
+  return request("/api/trends/brands", { method: "GET" });
+}
+
+// --- Model info ---
+export function getModelInfo() {
+  return request("/api/model/info", { method: "GET" });
+}
+
+// --- Batch ---
+export function batchAnalyze(texts) {
+  return request("/api/batch", { method: "POST", body: JSON.stringify({ texts }) });
+}

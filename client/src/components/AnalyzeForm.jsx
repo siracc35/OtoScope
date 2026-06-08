@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { scrapeUrl } from "../api";
 
-// The input surface: paste listing text (primary) OR try to scrape a URL.
-// loading / error are passed down from App so the three render states
-// (idle, loading, error) stay explicit and separate.
 export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }) {
   const [url, setUrl] = useState("");
   const [scraping, setScraping] = useState(false);
@@ -18,7 +15,6 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
       setText(data.text);
       setScrapeMsg(null);
     } catch (err) {
-      // sahibinden usually blocks bots — show the message, paste still works.
       setScrapeMsg(err.message);
     } finally {
       setScraping(false);
@@ -31,7 +27,6 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
     <section>
       <div className="section-title">01 / İlan Girişi</div>
 
-      {/* Optional convenience: pull text from a URL. Paste is the reliable path. */}
       <div className="form__bar">
         <input
           className="input"
@@ -63,15 +58,13 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
         </button>
       </div>
 
-      {/* LOADING state — distinct from idle/error */}
       {loading && (
         <div style={{ marginTop: 18 }}>
           <div className="scanner" />
-          <div className="loading-line">GEMINI İLANI DEĞERLENDİRİYOR — PİYASA TARANIYOR…</div>
+          <div className="loading-line">GEMİNİ İLANI DEĞERLENDİRİYOR — PİYASA TARANIYOR…</div>
         </div>
       )}
 
-      {/* ERROR state — distinct from loading/success */}
       {error && !loading && <div className="banner banner--error" style={{ marginTop: 18 }}>{error}</div>}
     </section>
   );

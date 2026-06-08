@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
-import { analyzeListing, getUsage, getHistoryItem } from "./api";
+import { analyzeListing, getHistoryItem, getUsage } from "./api";
 import AnalyzeForm from "./components/AnalyzeForm";
-import ResultDashboard from "./components/ResultDashboard";
+import BatchAnalyzeView from "./components/BatchAnalyzeView";
+import CompareView from "./components/CompareView";
 import HistoryView from "./components/HistoryView";
+import ResultDashboard from "./components/ResultDashboard";
+import TrendsView from "./components/TrendsView";
+import WatchlistView from "./components/WatchlistView";
 
 function normalizeResult(data) {
   if (!data) return null;
@@ -17,29 +21,24 @@ function normalizeResult(data) {
       fuel_type: data.fuel_type,
       transmission: data.transmission,
       listed_price: data.listed_price,
-    }
+    },
   };
 }
 
-// App is the single source of truth for the analyze flow. Note the THREE
-// separate state values: `loading`, `error`, and `result`. We keep them apart
-// (instead of one "status" blob) because each drives a different part of the
-// UI independently — the form can show a loading bar while an OLD result is
-// still on screen, and an error must not erase a previous result.
+const VIEWS = ["analyze", "history", "watchlist", "compare", "trends", "batch"];
+
 export default function App() {
-  const [view, setView] = useState("analyze"); // 'analyze' | 'history'
+  const [view, setView] = useState("analyze");
   const [text, setText] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [usage, setUsage] = useState(null); // { used, limit, remaining, ... }
+  const [usage, setUsage] = useState(null);
 
-  // Fetch remaining quota on first load.
   useEffect(() => {
     getUsage().then(setUsage).catch(() => {});
   }, []);
 
-  // If opened with ?id=<n> (e.g. from the extension), load that analysis directly.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("id");
     if (!id) return;
@@ -49,7 +48,6 @@ export default function App() {
     window.history.replaceState({}, "", "/");
   }, []);
 
-  // Theme: default dark (the product's identity), remembered across visits.
   const [theme, setTheme] = useState(() => localStorage.getItem("otoscope-theme") || "dark");
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -66,10 +64,18 @@ export default function App() {
       setError(err.message);
     } finally {
       setLoading(false);
-      // Refresh the quota counter whether it succeeded or hit the 429 limit.
       getUsage().then(setUsage).catch(() => {});
     }
   }
+
+  const NAV_LABELS = {
+    analyze:   "Analiz",
+    history:   "Geçmiş",
+    watchlist: "Favoriler",
+    compare:   "Karşılaştır",
+    trends:    "Trend",
+    batch:     "Toplu",
+  };
 
   return (
     <div className="app">
@@ -88,18 +94,15 @@ export default function App() {
           </span>
         </div>
         <nav className="nav">
-          <button
-            className={`nav__btn ${view === "analyze" ? "nav__btn--active" : ""}`}
-            onClick={() => setView("analyze")}
-          >
-            Analiz
-          </button>
-          <button
-            className={`nav__btn ${view === "history" ? "nav__btn--active" : ""}`}
-            onClick={() => setView("history")}
-          >
-            Geçmiş
-          </button>
+          {VIEWS.map((v) => (
+            <button
+              key={v}
+              className={`nav__btn ${view === v ? "nav__btn--active" : ""}`}
+              onClick={() => setView(v)}
+            >
+              {NAV_LABELS[v]}
+            </button>
+          ))}
           <button
             className="nav__btn"
             onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
@@ -110,7 +113,7 @@ export default function App() {
         </nav>
       </header>
 
-      {view === "analyze" ? (
+      {view === "analyze" && (
         <>
           <AnalyzeForm
             text={text}
@@ -125,7 +128,9 @@ export default function App() {
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {view === "history" && (
         <HistoryView
           onSelectItem={async (item) => {
             try {
@@ -139,9 +144,38 @@ export default function App() {
         />
       )}
 
+      {view === "watchlist" && (
+        <WatchlistView
+          onSelectItem={(item) => {
+            setResult(normalizeResult(item));
+            setView("analyze");
+          }}
+        />
+      )}
+
+      {view === "compare" && (
+        <CompareView
+          onSelectItem={(item) => {
+            setResult(normalizeResult(item));
+            setView("analyze");
+          }}
+        />
+      )}
+
+      {view === "trends" && <TrendsView />}
+
+      {view === "batch" && (
+        <BatchAnalyzeView
+          onSelectResult={(r) => {
+            setResult(r);
+            setView("analyze");
+          }}
+        />
+      )}
+
       <footer className="footer">
         <span>OTOSCOPE © 2026 — GEMINI 2.5 FLASH · FASTAPI · SCIKIT-LEARN</span>
-        <span>SAHIBINDEN.COM İLAN ANALİZİ</span>
+        <span>SAHİBİNDEN.COM İLAN ANALİZİ</span>
       </footer>
     </div>
   );

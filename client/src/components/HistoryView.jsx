@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { deleteHistoryItem, getHistory } from "../api";
 import { dateTime, money, num, verdictMeta } from "../format";
 
-// Self-contained view: owns its own load/error/data lifecycle.
 export default function HistoryView({ onSelectItem }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
@@ -22,9 +20,7 @@ export default function HistoryView({ onSelectItem }) {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   async function handleDelete(id) {
@@ -32,7 +28,6 @@ export default function HistoryView({ onSelectItem }) {
     setDeletingId(id);
     try {
       await deleteHistoryItem(id);
-      // Optimistically drop it from the list (server already deleted it).
       setItems((prev) => prev.filter((it) => it.id !== id));
     } catch (err) {
       setError(err.message);
@@ -84,10 +79,7 @@ export default function HistoryView({ onSelectItem }) {
               </div>
               <button
                 className="hist-card__del"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(it.id);
-                }}
+                onClick={(e) => { e.stopPropagation(); handleDelete(it.id); }}
                 disabled={deletingId === it.id}
                 title="Analizi sil"
                 aria-label="Analizi sil"
