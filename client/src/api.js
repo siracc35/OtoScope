@@ -41,6 +41,14 @@ export function getHistory(limit = 50) {
   return request(`/api/history?limit=${limit}`, { method: "GET" });
 }
 
+// DELETE returns 204 with no body, so we don't parse JSON here.
+export async function deleteHistoryItem(id) {
+  const resp = await fetch(`${API_BASE}/api/history/${id}`, { method: "DELETE" });
+  if (!resp.ok && resp.status !== 204) {
+    throw new Error(`Silme başarısız (hata ${resp.status})`);
+  }
+}
+
 export function scrapeUrl(url) {
   return request("/api/scrape", { method: "POST", body: JSON.stringify({ url }) });
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { analyzeListing } from "./api";
 import AnalyzeForm from "./components/AnalyzeForm";
 import ResultDashboard from "./components/ResultDashboard";
@@ -15,6 +15,13 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Theme: default dark (the product's identity), remembered across visits.
+  const [theme, setTheme] = useState(() => localStorage.getItem("otoscope-theme") || "dark");
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("otoscope-theme", theme);
+  }, [theme]);
 
   async function handleAnalyze() {
     setLoading(true);
@@ -48,6 +55,13 @@ export default function App() {
             onClick={() => setView("history")}
           >
             Geçmiş
+          </button>
+          <button
+            className="nav__btn"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            title="Temayı değiştir"
+          >
+            {theme === "dark" ? "☀ Açık" : "☾ Koyu"}
           </button>
         </nav>
       </header>

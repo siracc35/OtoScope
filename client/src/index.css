@@ -20,8 +20,11 @@
   --text-dim: #8a8a8a;
   --text-faint: #5a5a5a;
 
-  /* Accent — use SPARINGLY for primary actions/highlights only */
+  /* Accent — use SPARINGLY for primary actions/highlights only.
+     --accent       = FILL role (button/nav/score bg, always with black text)
+     --accent-ink   = TEXT role (accent-colored foreground, must read on the bg) */
   --accent: #e8ff47;
+  --accent-ink: #e8ff47;
 
   /* Semantic signals */
   --positive: #4ade80; /* green  — good / DEAL */
@@ -31,6 +34,29 @@
   --mono: "DM Mono", ui-monospace, "Cascadia Code", Menlo, monospace;
   --display: "Bebas Neue", sans-serif;
   --heading: "Syne", sans-serif;
+}
+
+/* Light theme — opt-in via <html data-theme="light">. Same structure, lighter
+   surfaces. We keep the electric accent (used as a black-text button bg, so it
+   stays readable) and darken the semantic colors for contrast on white. */
+:root[data-theme="light"] {
+  --bg: #f5f5f3;
+  --surface: #ffffff;
+  --surface-2: #ececea;
+
+  --border: #dddddd;
+  --border-strong: #bcbcbc;
+
+  --text: #121212;
+  --text-dim: #555555;
+  --text-faint: #8c8c8c;
+
+  --accent: #d9ec1f;
+  --accent-ink: #5c6b00; /* dark olive — readable accent text on white */
+
+  --positive: #15803d;
+  --warning: #b45309;
+  --danger: #dc2626;
 }
 
 * {
@@ -99,7 +125,7 @@ a { color: inherit; }
   line-height: 0.8;
   color: var(--text);
 }
-.brand__mark b { color: var(--accent); font-weight: 400; }
+.brand__mark b { color: var(--accent-ink); font-weight: 400; }
 
 .brand__sub {
   font-size: 11px;
@@ -385,7 +411,7 @@ a { color: inherit; }
 .history { display: flex; flex-direction: column; gap: 12px; }
 .hist-card {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
   gap: 22px;
   background: var(--surface);
@@ -393,6 +419,22 @@ a { color: inherit; }
   padding: 16px 20px;
   transition: border-color 0.15s;
 }
+.hist-card__del {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-faint);
+  background: transparent;
+  border: 1px solid var(--border);
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.hist-card__del:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.hist-card__del:disabled { opacity: 0.4; cursor: default; }
 .hist-card:hover { border-color: var(--border-strong); }
 .hist-card__id { font-size: 12px; color: var(--text-faint); }
 .hist-card__car { font-family: var(--heading); font-weight: 600; font-size: 16px; color: var(--text); }

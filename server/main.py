@@ -121,6 +121,16 @@ def history_item(item_id: int, db: Session = Depends(get_db)) -> AnalysisRecord:
     return record
 
 
+@app.delete("/api/history/{item_id}", status_code=204)
+def delete_history_item(item_id: int, db: Session = Depends(get_db)) -> None:
+    """Delete one past analysis. 204 = success with no body to return."""
+    record = db.get(AnalysisRecord, item_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    db.delete(record)
+    db.commit()
+
+
 # ---------------------------------------------------------------------------
 # SCRAPE: fetch a listing URL -> raw text (convenience; paste is primary)
 # ---------------------------------------------------------------------------

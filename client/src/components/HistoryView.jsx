@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getHistory } from "../api";
+import { deleteHistoryItem, getHistory } from "../api";
 import { dateTime, money, num, verdictMeta } from "../format";
 
 // Self-contained view: owns its own load/error/data lifecycle.
@@ -7,6 +7,8 @@ export default function HistoryView() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -24,6 +26,20 @@ export default function HistoryView() {
       alive = false;
     };
   }, []);
+
+  async function handleDelete(id) {
+    if (!window.confirm("Bu analizi kalıcı olarak silmek istediğine emin misin?")) return;
+    setDeletingId(id);
+    try {
+      await deleteHistoryItem(id);
+      // Optimistically drop it from the list (server already deleted it).
+      setItems((prev) => prev.filter((it) => it.id !== id));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <section>
@@ -61,6 +77,15 @@ export default function HistoryView() {
                 <div className="hist-card__price">{money(it.listed_price)}</div>
                 <div className="hist-card__date">{dateTime(it.created_at)}</div>
               </div>
+              <button
+                className="hist-card__del"
+                onClick={() => handleDelete(it.id)}
+                disabled={deletingId === it.id}
+                title="Analizi sil"
+                aria-label="Analizi sil"
+              >
+                {deletingId === it.id ? "…" : "✕"}
+              </button>
             </article>
           );
         })}
