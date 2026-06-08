@@ -41,6 +41,10 @@ export function getHistory(limit = 50) {
   return request(`/api/history?limit=${limit}`, { method: "GET" });
 }
 
+export function getHistoryItem(id) {
+  return request(`/api/history/${id}`, { method: "GET" });
+}
+
 // DELETE returns 204 with no body, so we don't parse JSON here.
 export async function deleteHistoryItem(id) {
   const resp = await fetch(`${API_BASE}/api/history/${id}`, { method: "DELETE" });

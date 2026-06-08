@@ -17,6 +17,7 @@ no longer blocks everyone else. Right tool for blocking I/O.
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from analyzer import analyze_listing
@@ -27,6 +28,7 @@ from models import (
     AnalysisResult,
     AnalyzeRequest,
     HistoryItem,
+    ListingData,
     PredictRequest,
     PredictResponse,
     ScrapeRequest,
@@ -39,13 +41,23 @@ from scraper import ScrapeError, scrape_listing
 # Create the table(s) on startup if they don't exist yet.
 Base.metadata.create_all(bind=engine)
 
+with engine.begin() as conn:
+    try:
+        conn.execute(text("ALTER TABLE analyses ADD COLUMN chronic_issues JSON NOT NULL DEFAULT '[]'"))
+    except Exception:
+        pass
+    try:
+        conn.execute(text("ALTER TABLE analyses ADD COLUMN user_consensus TEXT NOT NULL DEFAULT ''"))
+    except Exception:
+        pass
+
 app = FastAPI(title="OtoScope API", version="1.0.0")
 
 # CORS: allow the Vite dev server (and its 127.0.0.1 alias) to call us.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -101,9 +113,13 @@ def analyze(
         cons=result.cons,
         negotiation_guide=result.negotiation_guide,
         expert_comment=result.expert_comment,
+        chronic_issues=result.chronic_issues,
+        user_consensus=result.user_consensus,
     )
     db.add(record)
     db.commit()
+    db.refresh(record)
+    result.id = record.id
 
     # 4) Count this successful analysis against the caps.
     record_usage(db, ip)
@@ -130,12 +146,47 @@ def history(limit: int = 50, db: Session = Depends(get_db)) -> list[AnalysisReco
     )
 
 
-@app.get("/api/history/{item_id}", response_model=HistoryItem)
-def history_item(item_id: int, db: Session = Depends(get_db)) -> AnalysisRecord:
+@app.get("/api/history/{item_id}", response_model=AnalysisResult)
+def history_item(item_id: int, db: Session = Depends(get_db)) -> AnalysisResult:
     record = db.get(AnalysisRecord, item_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Analysis not found")
-    return record
+
+    predicted_price = None
+    if all(v is not None for v in (record.brand, record.year, record.km,
+                                   record.fuel_type, record.transmission)):
+        predicted_price = predict_price(
+            brand=record.brand,
+            year=record.year,
+            km=record.km,
+            fuel_type=record.fuel_type,
+            transmission=record.transmission,
+        )
+
+    return AnalysisResult(
+        id=record.id,
+        verdict=record.verdict,
+        opportunity_score=record.opportunity_score,
+        market_low=record.market_low,
+        market_high=record.market_high,
+        price_diff=record.price_diff,
+        pros=record.pros,
+        cons=record.cons,
+        negotiation_guide=record.negotiation_guide,
+        expert_comment=record.expert_comment,
+        chronic_issues=record.chronic_issues or [],
+        user_consensus=record.user_consensus or "",
+        predicted_price=predicted_price,
+        listing=ListingData(
+            brand=record.brand,
+            model=record.model,
+            year=record.year,
+            km=record.km,
+            fuel_type=record.fuel_type,
+            transmission=record.transmission,
+            listed_price=record.listed_price,
+        ),
+    )
 
 
 @app.delete("/api/history/{item_id}", status_code=204)

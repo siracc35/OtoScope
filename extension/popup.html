@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      height: 200px;
+      margin: 0;
+      padding: 15px;
+      background-color: #0a0a0a;
+      color: #e8e8e8;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    h1 {
+      font-size: 18px;
+      margin-top: 0;
+      margin-bottom: 20px;
+      color: #FFE800;
+      text-align: center;
+    }
+    button {
+      background-color: #FFE800;
+      color: #0a0a0a;
+      border: none;
+      padding: 12px 15px;
+      font-family: monospace;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 4px;
+      width: 100%;
+      transition: opacity 0.2s;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 13px;
+      word-wrap: break-word;
+      width: 100%;
+    }
+    .error { color: #ff5555; }
+    .success { color: #55ff55; }
+    .hidden { display: none !important; }
+    .spinner {
+      border: 3px solid #333;
+      border-top: 3px solid #FFE800;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #loadingContainer {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>OtoScope Helper</h1>
+  
+  <button id="sendBtn">İlanı Gönder</button>
+  
+  <div id="loadingContainer" class="hidden">
+    <div class="spinner"></div>
+    <div>Analiz ediliyor...</div>
+  </div>
+  
+  <div id="status"></div>
+  
+  <button id="openAppBtn" class="hidden">OtoScope'u Aç</button>
+
+  <script src="popup.js"></script>
+</body>
+</html>

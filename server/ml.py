@@ -41,6 +41,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 from database import Base, SessionLocal, engine
 from models import AnalysisRecord
+from scraper_arabam import scrape_arabam_listings
 
 MODEL_PATH = Path(__file__).parent / "model.joblib"
 
@@ -166,17 +167,26 @@ def _build_pipeline() -> Pipeline:
 
 
 def train(verbose: bool = True) -> Pipeline:
-    """Train on real DB rows if we have enough, else on synthetic data.
-
-    We hold out a TEST split so the reported error reflects unseen data, not
-    rows the model already memorized (that gap is exactly overfitting).
-    """
+    """Train on real DB rows if we have enough, else fallback to scraping arabam.com."""
     import joblib
 
     df = export_dataframe()
     source = "database"
     if len(df) < MIN_REAL_ROWS:
-        df = _synthetic_dataframe()
+        print("Not enough DB rows. Scraping arabam.com for training data (this may take a minute)...")
+        scraped_data = scrape_arabam_listings(pages=15) # 15 pages * 20 cars = ~300 cars
+        df_scraped = pd.DataFrame(scraped_data)
+        # We can still add some synthetic data to ensure all brands are covered,
+        # but let's stick to scraped data + existing DB data
+        df = pd.concat([df, df_scraped], ignore_index=True)
+        # Drop duplicates or NAs if any
+        df = df.dropna(subset=FEATURES + [TARGET])
+        source = "arabam.com + database"
+
+    if len(df) < 5:
+        # Extreme fallback if scraping completely failed
+        print("Scraping failed or returned too few rows, using synthetic fallback.")
+        df = _synthetic_dataframe(n=500)
         source = "synthetic bootstrap"
 
     X = df[FEATURES]

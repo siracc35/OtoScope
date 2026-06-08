@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { money, moneySigned, num, verdictMeta } from "../format";
+
 
 // Pure presentation: given an AnalysisResult, render the dashboard.
 // No fetching here — data flows in via props (single source of truth in App).
@@ -13,7 +15,7 @@ export default function ResultDashboard({ result }) {
     <section className="dash">
       <div className="section-title">02 / Analiz Sonucu</div>
 
-      {/* Top: verdict (wide) + score (narrow), asymmetric on purpose */}
+      {/* Top: verdict (wide) + visualizer (interactive) + score (narrow) */}
       <div className="dash__top">
         <div className="panel verdict">
           <div className="verdict__head">
@@ -34,13 +36,21 @@ export default function ResultDashboard({ result }) {
           </div>
         </div>
 
+
         <div className="panel score">
           <div className="label">FIRSAT SKORU</div>
           <div className="score__num">
             {result.opportunity_score}<small>/100</small>
           </div>
           <div className="score__bar">
-            <div className="score__fill" style={{ width: `${result.opportunity_score}%` }} />
+            <div 
+              className="score__fill" 
+              style={{ width: `${result.opportunity_score}%` }} 
+              role="progressbar" 
+              aria-valuenow={result.opportunity_score} 
+              aria-valuemin="0" 
+              aria-valuemax="100" 
+            />
           </div>
         </div>
       </div>
@@ -59,13 +69,13 @@ export default function ResultDashboard({ result }) {
         <div className="stat">
           <div className="stat__label">Piyasa Farkı</div>
           <div className={`stat__value ${diffPositive ? "stat__value--pos" : "stat__value--neg"}`}>
-            {moneySigned(result.price_diff)}
+            {diffPositive ? `${money(Math.abs(result.price_diff))} (Piyasa Altı)` : moneySigned(result.price_diff)}
           </div>
           <div className="stat__sub">orta nokta {money(marketMid)}</div>
         </div>
         <div className="stat">
           <div className="stat__label">Model Tahmini (ML)</div>
-          <div className="stat__value">{money(result.predicted_price)}</div>
+          <div className="stat__value">{result.predicted_price ? money(result.predicted_price) : "—"}</div>
           <div className="stat__sub">{result.predicted_price ? "scikit-learn" : "model eğitilmedi"}</div>
         </div>
       </div>
@@ -85,6 +95,26 @@ export default function ResultDashboard({ result }) {
           </ul>
         </div>
       </div>
+
+      {/* Chronic Issues and User Consensus */}
+      {(result.chronic_issues?.length > 0 || result.user_consensus) && (
+        <div className="two-col" style={{ marginTop: 24 }}>
+          {result.chronic_issues?.length > 0 && (
+            <div className="panel" style={{ borderLeft: '4px solid var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}>
+              <div className="label" style={{ marginBottom: 12, color: 'var(--danger)' }}>⚠️ KRONİK SORUNLAR & DİKKAT EDİLMESİ GEREKENLER</div>
+              <ul className="list list--cons">
+                {result.chronic_issues.map((issue, i) => <li key={i}>{issue}</li>)}
+              </ul>
+            </div>
+          )}
+          {result.user_consensus && (
+            <div className="panel" style={{ borderLeft: '4px solid var(--accent)', backgroundColor: 'rgba(56, 189, 248, 0.05)' }}>
+              <div className="label" style={{ marginBottom: 12, color: 'var(--accent)' }}>🗣️ KULLANICI DENEYİMİ</div>
+              <p className="prose">{result.user_consensus}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Negotiation + expert commentary */}
       <div className="two-col">

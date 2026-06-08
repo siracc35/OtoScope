@@ -1,94 +1,99 @@
-# OtoScope
+<div align="center">
+  <h1>🚗 OtoScope</h1>
+  <p><strong>AI-powered analysis and valuation tool for Turkish used-car listings (sahibinden.com & arabam.com)</strong></p>
+  
+  <p>
+    <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python" />
+    <img src="https://img.shields.io/badge/FastAPI-0.100+-009688.svg" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/React-18+-61dafb.svg" alt="React" />
+    <img src="https://img.shields.io/badge/AI-Google_Gemini-4285F4.svg" alt="Gemini" />
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+  </p>
+</div>
 
-> AI-powered analysis tool for Turkish used-car listings from sahibinden.com.
+<br />
 
-OtoScope takes the raw text of a used-car listing, sends it to Google Gemini through
-a FastAPI backend, and returns a structured analysis: an estimated market value, an
-opportunity score, pros/cons, a negotiation guide, and expert commentary — plus an
-independent price estimate from our own scikit-learn model — presented in a
-professional, terminal-style dashboard.
+OtoScope takes the raw text of a used-car listing, sends it to **Google Gemini** through a fast backend, and returns a structured, professional analysis. It acts as your personal "Oto Sanayi Ustası", giving you an estimated market value, an opportunity score, pros/cons, and even chronic issues for that specific vehicle.
 
-## Architecture
+## ✨ Features
 
-```
-React (Vite)  ──HTTP──►        FastAPI         ──►  Google Gemini API
-  frontend           ┌──────────┼──────────┐         (analyzer.py)
-                     ▼          ▼          ▼
-                 ml.py     database.py   scraper.py
-              scikit-learn   SQLite      BeautifulSoup
+- 🧠 **AI-Powered Analysis:** Leverages Google Gemini (with smart fallback routing) to understand messy listing text.
+- 💰 **Market Valuation:** Computes a realistic market price range and compares it to the asking price.
+- ⚠️ **Chronic Issues Detection:** Automatically flags known engine/transmission chronic issues for the specific car model.
+- 🗣️ **User Consensus:** Summarizes general user experiences and satisfaction for the vehicle.
+- 🤖 **Local ML Price Model:** Includes a custom `scikit-learn` Random Forest model trained daily on historical data for an independent price check.
+- 🔌 **Browser Extension:** Includes a Chrome Extension to analyze listings on sahibinden.com and arabam.com with a single click.
+
+## 🏗 Architecture
+
+```mermaid
+graph LR
+    A[React / Vite UI] -- HTTP --> B(FastAPI Backend)
+    B -- Extracts Data --> C{Google Gemini}
+    C -- Returns JSON --> B
+    B -- Predicts Price --> D[scikit-learn ML]
+    B -- Saves History --> E[(SQLite)]
+    F[Chrome Extension] -- Sends Text --> B
 ```
 
 | Layer         | Responsibility                                               |
 |---------------|--------------------------------------------------------------|
 | `client/`     | React + Vite UI — presentation only, no secrets              |
-| `server/main.py`   | FastAPI — HTTP, validation, routing, persistence        |
-| `server/analyzer.py` | Isolated Gemini logic (swap providers in one file)    |
-| `server/models.py`   | Pydantic schemas (API) + SQLAlchemy model (DB)        |
-| `server/database.py` | Engine, session factory, `get_db` dependency          |
-| `server/ml.py`       | scikit-learn price model (train + predict)            |
-| `server/scraper.py`  | Optional listing-URL scraping (paste is primary)      |
-| SQLite        | Stores past analyses for history and ML training             |
+| `extension/`  | Chrome/Edge Extension to grab listing text instantly         |
+| `server/`     | FastAPI backend, ML models, Gemini integration, and SQLite DB|
 
-## Tech Stack
+## 🚀 Getting Started
 
-- **Backend:** Python, FastAPI, Pydantic, SQLAlchemy
-- **Frontend:** React + Vite (plain CSS design system, no UI framework)
-- **AI:** Google Gemini (`gemini-2.5-flash`) via `google-genai`, structured output
-- **ML:** scikit-learn (RandomForest) — price prediction
-- **Scraping:** requests + BeautifulSoup
-- **Database:** SQLite
-
-## Getting Started
-
-### 1. Backend
+### 1. Backend (FastAPI)
 
 ```bash
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/OtoScope.git
+cd OtoScope
+
 # Create and activate a virtual environment
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1        # Windows PowerShell
+.\.venv\Scripts\Activate.ps1        # Windows
 # source .venv/bin/activate          # macOS / Linux
 
 # Install dependencies
 pip install -r server/requirements.txt
 
 # Configure your API key
-cp server/.env.example server/.env   # then edit server/.env -> GEMINI_API_KEY=...
+cp server/.env.example server/.env   # Edit server/.env and set GEMINI_API_KEY
+```
 
-# (Optional) train the price model — bootstraps on synthetic data
+> **Note:** The backend uses a fallback system (`gemini-3.1-flash-lite`, `gemini-3.5-flash`, etc.) to bypass rate limits automatically.
+
+```bash
+# (Optional) Train the local ML price model
 python server/ml.py train
 
 # Run the API
 uvicorn main:app --app-dir server --reload
 ```
+*API runs at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.*
 
-API at `http://127.0.0.1:8000`, interactive docs at `http://127.0.0.1:8000/docs`.
-
-### 2. Frontend
+### 2. Frontend (React)
 
 ```bash
 cd client
 npm install
-npm run dev          # http://localhost:5173
+npm run dev
 ```
+*Frontend runs at `http://localhost:5173`.*
 
-## API
+### 3. Chrome Extension
 
-| Method | Path                  | Description                                   |
-|--------|-----------------------|-----------------------------------------------|
-| `GET`  | `/`                   | Health check                                  |
-| `POST` | `/api/analyze`        | Analyze raw listing text → full analysis      |
-| `GET`  | `/api/history`        | List past analyses (newest first)             |
-| `GET`  | `/api/history/{id}`   | A single past analysis                        |
-| `POST` | `/api/scrape`         | Fetch a listing URL → raw text (best-effort)  |
-| `POST` | `/api/predict`        | ML price estimate from a feature vector       |
+1. Open Google Chrome and navigate to `chrome://extensions/`.
+2. Enable **"Developer mode"** in the top right corner.
+3. Click **"Load unpacked"** and select the `OtoScope/extension/` folder.
+4. Go to any car listing on **sahibinden.com** or **arabam.com** and click the floating "OtoScope ile Analiz Et" button!
 
-## Project Status
+## 🤝 Contributing
 
-- [x] Phase 1 — Backend core (FastAPI, Pydantic, SQLite, Gemini)
-- [x] Phase 2 — React frontend & terminal-style dashboard
-- [x] Phase 3 — History page & scraping
-- [x] Phase 4 — ML price prediction (scikit-learn)
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and request features. Make sure to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## License
+## 📄 License
 
-For educational purposes.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.

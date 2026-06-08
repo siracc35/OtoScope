@@ -31,7 +31,13 @@ if not API_KEY:
         "GEMINI_API_KEY is not set. Copy server/.env.example to server/.env and fill it in."
     )
 
-MODEL = "gemini-2.5-flash"
+MODELS = [
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash"
+]
 
 # A single client is created once at import time and reused for every request.
 client = genai.Client(api_key=API_KEY)
@@ -69,7 +75,10 @@ Your tasks:
 7. Write a negotiation_guide: a practical strategy (opening offer, leverage
    points, a target price).
 8. Write an expert_comment: a concise, professional overall assessment.
-
+9. Using your vast automotive knowledge, identify the chronic issues (kronik sorunlar)
+   known for this specific brand/model/engine/year combination. List them as strings in `chronic_issues`.
+   If none are well-known, return an empty list or a generic note.
+10. Write a `user_consensus`: a short summary of how users generally rate this specific vehicle (e.g. good handling, bad fuel economy, reliable).
 Hard rules:
 - Base everything ONLY on the provided text plus general market knowledge.
   Do not fabricate specific facts that the text does not imply.
@@ -90,21 +99,32 @@ def analyze_listing(text: str) -> AnalysisResult:
                               against it AND hands us a ready-made AnalysisResult
     - temperature (low)    -> we want consistent, grounded valuations, not creativity
     """
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=text,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_schema=AnalysisResult,
-            temperature=0.3,
-        ),
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM_PROMPT,
+        response_mime_type="application/json",
+        response_schema=AnalysisResult,
+        temperature=0.3,
     )
 
-    # When response_schema is a Pydantic model, the SDK parses the JSON for us.
-    result = response.parsed
-    if result is None:
-        # Defensive fallback: parse the raw JSON text ourselves.
-        result = AnalysisResult.model_validate_json(response.text)
+    last_error = None
+    for model_name in MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=text,
+                config=config,
+            )
 
-    return result
+            # When response_schema is a Pydantic model, the SDK parses the JSON for us.
+            result = response.parsed
+            if result is None:
+                # Defensive fallback: parse the raw JSON text ourselves.
+                result = AnalysisResult.model_validate_json(response.text)
+
+            return result
+        except Exception as e:
+            print(f"[analyzer] Model {model_name} failed: {e}")
+            last_error = e
+
+    # If all models fail, raise the last error
+    raise RuntimeError(f"All models failed due to rate limits or errors. Last error: {last_error}")

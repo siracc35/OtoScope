@@ -57,7 +57,8 @@ class AnalysisRecord(Base):
     cons = Column(JSON, nullable=False)
     negotiation_guide = Column(Text, nullable=False)
     expert_comment = Column(Text, nullable=False)
-
+    chronic_issues = Column(JSON, nullable=False)
+    user_consensus = Column(Text, nullable=False)
 
 class UsageRecord(Base):
     """One row per (ip, day) — how many analyses that IP ran on that calendar day.
@@ -108,6 +109,7 @@ class ListingData(BaseModel):
     listed_price: int | None = Field(None, description="Asking price in the listing (TRY)")
 
 
+
 class AnalysisResult(BaseModel):
     """The full analysis returned by the endpoint. Every dashboard box reads from here."""
 
@@ -128,6 +130,10 @@ class AnalysisResult(BaseModel):
 
     negotiation_guide: str = Field(..., description="Negotiation strategy text")
     expert_comment: str = Field(..., description="Expert commentary / overall assessment")
+    chronic_issues: list[str] = Field(default_factory=list, description="List of chronic issues known for this car model")
+    user_consensus: str = Field("", description="General consensus and user experiences with this vehicle")
+
+    id: int | None = Field(None, description="Database ID of this saved analysis")
 
     # Filled by our own ML model (Phase 4) when a trained model is available.
     # Optional: stays None if no model has been trained yet.
@@ -167,6 +173,8 @@ class HistoryItem(BaseModel):
     cons: list[str]
     negotiation_guide: str
     expert_comment: str
+    chronic_issues: list[str]
+    user_consensus: str
 
 
 # ---------------------------------------------------------------------------

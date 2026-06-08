@@ -18,7 +18,8 @@
   /* Text */
   --text: #ededed;
   --text-dim: #8a8a8a;
-  --text-faint: #5a5a5a;
+  --text-faint: #737373;
+  --text-prose: #d4d4d4;
 
   /* Accent — use SPARINGLY for primary actions/highlights only.
      --accent       = FILL role (button/nav/score bg, always with black text)
@@ -30,6 +31,13 @@
   --positive: #4ade80; /* green  — good / DEAL */
   --warning: #f5a623;  /* amber  — caution / FAIR */
   --danger: #ef4444;   /* red    — risk / OVERPRICED */
+
+  /* Banner colors */
+  --error-text: #ffb4b4;
+  --error-bg: rgba(239, 68, 68, 0.12);
+  --info-text: #f3d6a0;
+  --info-bg: rgba(245, 166, 35, 0.12);
+
 
   --mono: "DM Mono", ui-monospace, "Cascadia Code", Menlo, monospace;
   --display: "Bebas Neue", sans-serif;
@@ -50,13 +58,21 @@
   --text: #121212;
   --text-dim: #555555;
   --text-faint: #8c8c8c;
+  --text-prose: #222222;
 
   --accent: #d9ec1f;
   --accent-ink: #5c6b00; /* dark olive — readable accent text on white */
 
-  --positive: #15803d;
-  --warning: #b45309;
-  --danger: #dc2626;
+  --positive: #166534;
+  --warning: #9a3412;
+  --danger: #991b1b;
+
+  /* Banner colors */
+  --error-text: #991b1b;
+  --error-bg: #fee2e2;
+  --info-text: #9a3412;
+  --info-bg: #fef3c7;
+
 }
 
 * {
@@ -252,8 +268,8 @@ a { color: inherit; }
   font-size: 13px;
   margin-bottom: 16px;
 }
-.banner--error { border-left-color: var(--danger); color: #ffb4b4; }
-.banner--info { border-left-color: var(--warning); color: #f3d6a0; }
+.banner--error { border-left-color: var(--danger); color: var(--error-text); background: var(--error-bg); }
+.banner--info { border-left-color: var(--warning); color: var(--info-text); background: var(--info-bg); }
 
 /* loading: a thin scanning bar, no spinner gimmicks */
 .scanner {
@@ -370,7 +386,7 @@ a { color: inherit; }
   font-size: 22px;
   font-weight: 500;
   color: var(--text);
-  white-space: nowrap;
+  word-break: break-word;
 }
 .stat__value--pos { color: var(--positive); }
 .stat__value--neg { color: var(--danger); }
@@ -402,7 +418,7 @@ a { color: inherit; }
 .prose {
   font-size: 13.5px;
   line-height: 1.65;
-  color: #d4d4d4;
+  color: var(--text-prose);
   white-space: pre-wrap;
 }
 
@@ -476,3 +492,4 @@ a { color: inherit; }
   .prices { grid-template-columns: 1fr 1fr; }
   .hist-card { grid-template-columns: 1fr auto; gap: 10px; }
 }
+

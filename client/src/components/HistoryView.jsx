@@ -3,7 +3,7 @@ import { deleteHistoryItem, getHistory } from "../api";
 import { dateTime, money, num, verdictMeta } from "../format";
 
 // Self-contained view: owns its own load/error/data lifecycle.
-export default function HistoryView() {
+export default function HistoryView({ onSelectItem }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,7 +62,12 @@ export default function HistoryView() {
         {items.map((it) => {
           const v = verdictMeta(it.verdict);
           return (
-            <article className="hist-card" key={it.id}>
+            <article
+              className="hist-card"
+              key={it.id}
+              onClick={() => onSelectItem?.(it)}
+              style={onSelectItem ? { cursor: "pointer" } : {}}
+            >
               <span className="hist-card__id">#{String(it.id).padStart(3, "0")}</span>
               <div>
                 <div className="hist-card__car">
@@ -79,7 +84,10 @@ export default function HistoryView() {
               </div>
               <button
                 className="hist-card__del"
-                onClick={() => handleDelete(it.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(it.id);
+                }}
                 disabled={deletingId === it.id}
                 title="Analizi sil"
                 aria-label="Analizi sil"

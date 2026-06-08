@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "OtoScope Helper",
+  "version": "1.0",
+  "description": "Extracts sahibinden.com listings and sends them to the local OtoScope API.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.sahibinden.com/*",
+    "https://www.arabam.com/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "OtoScope Helper"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.sahibinden.com/ilan/*",
+        "https://www.arabam.com/ilan/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
