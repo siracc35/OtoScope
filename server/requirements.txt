@@ -4,3 +4,9 @@ google-genai
 python-dotenv
 sqlalchemy
 pydantic
+beautifulsoup4
+lxml
+requests
+scikit-learn
+pandas
+joblib

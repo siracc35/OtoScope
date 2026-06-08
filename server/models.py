@@ -9,8 +9,59 @@ KEY DISTINCTION (we will go deeper later):
 - SQLAlchemy model -> "Which table and columns does this data live in?" (persistence)
 """
 
-from pydantic import BaseModel, Field
+from datetime import datetime
 
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+from sqlalchemy.sql import func
+
+from database import Base
+
+
+# ===========================================================================
+# SQLALCHEMY MODEL (persistence) — "how the data lives in the DB"
+# ===========================================================================
+class AnalysisRecord(Base):
+    """One row per analysis in the 'analyses' table.
+
+    Note it is FLAT: listing fields (brand, year, km, ...) become their own
+    columns instead of a nested object. This makes them easy to query and to
+    feed into our future ML model. pros/cons are lists, so we store them in
+    JSON columns (SQLite keeps JSON as text under the hood).
+    """
+
+    __tablename__ = "analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # server_default=func.now() -> the DB stamps the time on insert, not Python.
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    raw_text = Column(Text, nullable=False)  # the original pasted listing
+
+    # --- extracted listing facts (flattened) ---
+    brand = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    year = Column(Integer, nullable=True)
+    km = Column(Integer, nullable=True)
+    fuel_type = Column(String, nullable=True)
+    transmission = Column(String, nullable=True)
+    listed_price = Column(Integer, nullable=True)
+
+    # --- analysis results ---
+    verdict = Column(String, nullable=False)
+    opportunity_score = Column(Integer, nullable=False)
+    market_low = Column(Integer, nullable=False)
+    market_high = Column(Integer, nullable=False)
+    price_diff = Column(Integer, nullable=False)
+    pros = Column(JSON, nullable=False)
+    cons = Column(JSON, nullable=False)
+    negotiation_guide = Column(Text, nullable=False)
+    expert_comment = Column(Text, nullable=False)
+
+
+# ===========================================================================
+# PYDANTIC MODELS (API contract) — "is the data well-formed at the HTTP edge"
+# ===========================================================================
 
 # ---------------------------------------------------------------------------
 # REQUEST model
@@ -62,3 +113,70 @@ class AnalysisResult(BaseModel):
 
     negotiation_guide: str = Field(..., description="Negotiation strategy text")
     expert_comment: str = Field(..., description="Expert commentary / overall assessment")
+
+    # Filled by our own ML model (Phase 4) when a trained model is available.
+    # Optional: stays None if no model has been trained yet.
+    predicted_price: int | None = Field(
+        None, description="Price predicted by our scikit-learn model (TRY)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# HISTORY model — serializes an ORM row (AnalysisRecord) back out as JSON
+# ---------------------------------------------------------------------------
+class HistoryItem(BaseModel):
+    """A past analysis returned by /api/history.
+
+    model_config = from_attributes lets Pydantic read directly from a
+    SQLAlchemy ORM object's attributes (record.brand, record.verdict, ...),
+    so we can do HistoryItem.model_validate(record) without manual mapping.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+    brand: str | None
+    model: str | None
+    year: int | None
+    km: int | None
+    fuel_type: str | None
+    transmission: str | None
+    listed_price: int | None
+    verdict: str
+    opportunity_score: int
+    market_low: int
+    market_high: int
+    price_diff: int
+    pros: list[str]
+    cons: list[str]
+    negotiation_guide: str
+    expert_comment: str
+
+
+# ---------------------------------------------------------------------------
+# SCRAPING models (Phase 3)
+# ---------------------------------------------------------------------------
+class ScrapeRequest(BaseModel):
+    url: str = Field(..., description="A sahibinden.com listing URL")
+
+
+class ScrapeResponse(BaseModel):
+    text: str = Field(..., description="Extracted listing text, ready to analyze")
+
+
+# ---------------------------------------------------------------------------
+# ML PREDICTION models (Phase 4)
+# ---------------------------------------------------------------------------
+class PredictRequest(BaseModel):
+    """The feature vector our model needs to predict a price."""
+
+    brand: str
+    year: int
+    km: int
+    fuel_type: str
+    transmission: str
+
+
+class PredictResponse(BaseModel):
+    predicted_price: int = Field(..., description="Model-predicted price (TRY)")

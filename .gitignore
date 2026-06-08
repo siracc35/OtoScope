@@ -10,12 +10,16 @@ __pycache__/
 *.db
 *.sqlite3
 
+# --- Trained ML model (binary artifact, regenerated via `python ml.py train`) ---
+*.joblib
+
 # --- Node / Vite (added in Phase 2) ---
 node_modules/
 dist/
 
-# --- IDE / OS ---
+# --- IDE / tooling / OS ---
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
