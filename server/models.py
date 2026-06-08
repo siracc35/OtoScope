@@ -206,3 +206,4 @@ class UsageStatus(BaseModel):
     remaining: int = Field(..., description="Per-IP analyses left today")
     global_used: int = Field(..., description="Analyses all users ran today")
     global_limit: int = Field(..., description="Global daily cap")
+    exempt: bool = Field(False, description="True if this caller bypasses the limits")

@@ -53,7 +53,9 @@ export default function App() {
             İlan Analiz Terminali
             {usage && (
               <span className="brand__quota">
-                {" · "}BUGÜN {usage.used}/{usage.limit} ANALİZ
+                {usage.exempt
+                  ? " · SINIRSIZ (OPERATÖR)"
+                  : ` · BUGÜN ${usage.used}/${usage.limit} ANALİZ`}
               </span>
             )}
           </span>

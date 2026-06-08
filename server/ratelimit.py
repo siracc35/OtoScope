@@ -13,16 +13,44 @@ an authenticated user id (e.g. Google OAuth) and the same counters still work.
 Tunables — raise these once you move to Gemini's paid tier.
 """
 
+import os
 from datetime import date
+from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models import UsageRecord
 
-PER_IP_DAILY_CAP = 3
-GLOBAL_DAILY_CAP = 18
+# Config from .env so caps/exemptions are tunable per environment WITHOUT code
+# changes — loose while developing, strict in production.
+load_dotenv(Path(__file__).parent / ".env")
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+PER_IP_DAILY_CAP = _int_env("RATE_LIMIT_PER_IP", 3)
+GLOBAL_DAILY_CAP = _int_env("RATE_LIMIT_GLOBAL", 18)
+
+# IPs that bypass the limits entirely — the operator, not untrusted visitors.
+# Defaults to localhost so local development is never throttled. In production,
+# real users arrive on external IPs (via X-Forwarded-For) and stay limited.
+EXEMPT_IPS = {
+    ip.strip()
+    for ip in os.getenv("RATE_LIMIT_EXEMPT_IPS", "127.0.0.1,::1,localhost").split(",")
+    if ip.strip()
+}
+
+
+def is_exempt(ip: str) -> bool:
+    return ip in EXEMPT_IPS
 
 
 def client_ip(request: Request) -> str:
@@ -56,6 +84,9 @@ def _ip_row(db: Session, ip: str, day: str) -> UsageRecord | None:
 def enforce_limits(db: Session, ip: str) -> None:
     """Raise HTTP 429 if this request would exceed either cap. Call BEFORE doing
     the expensive Gemini work."""
+    if is_exempt(ip):
+        return  # operator / localhost — never throttled
+
     day = _today()
 
     if _global_count(db, day) >= GLOBAL_DAILY_CAP:
@@ -74,6 +105,9 @@ def enforce_limits(db: Session, ip: str) -> None:
 
 def record_usage(db: Session, ip: str) -> None:
     """Increment this IP's counter for today. Call AFTER a successful analysis."""
+    if is_exempt(ip):
+        return  # keep operator activity off the ledger (don't eat the global cap)
+
     day = _today()
     row = _ip_row(db, ip, day)
     if row is None:
@@ -88,10 +122,12 @@ def usage_status(db: Session, ip: str) -> dict:
     day = _today()
     row = _ip_row(db, ip, day)
     used = row.count if row else 0
+    exempt = is_exempt(ip)
     return {
         "used": used,
         "limit": PER_IP_DAILY_CAP,
         "remaining": max(0, PER_IP_DAILY_CAP - used),
         "global_used": _global_count(db, day),
         "global_limit": GLOBAL_DAILY_CAP,
+        "exempt": exempt,
     }
