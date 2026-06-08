@@ -4,53 +4,107 @@ analyzer.py — The ONLY file where the AI provider (Gemini) is ISOLATED.
 WHY ISOLATE? (separation of concerns)
 main.py only knows how to "handle HTTP traffic"; it does NOT know how Gemini is
 called. If tomorrow we switch from Gemini to OpenAI, we change ONLY this file —
-main.py / models.py stay untouched. The only thing main.py cares about is that
-this module exposes `analyze_listing(text) -> AnalysisResult`.
-
-RIGHT NOW: Gemini is not wired in yet. We return a fixed (mock) result so we can
-test the HTTP pipeline INDEPENDENTLY of Gemini. In Step 3 the BODY of this
-function changes; its SIGNATURE (parameters and return type) stays the same.
+main.py / models.py stay untouched. The only contract main.py relies on is:
+`analyze_listing(text) -> AnalysisResult`.
 """
 
-from models import AnalysisResult, ListingData
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+from models import AnalysisResult
+
+# ---------------------------------------------------------------------------
+# Configuration / client setup
+# ---------------------------------------------------------------------------
+# Load the .env that sits next to this file (server/.env). We pass an explicit
+# path because the server's working directory is the project root, not server/.
+load_dotenv(Path(__file__).parent / ".env")
+
+API_KEY = os.getenv("GEMINI_API_KEY")
+if not API_KEY:
+    # Fail fast with a clear message instead of a confusing error deep in a request.
+    raise RuntimeError(
+        "GEMINI_API_KEY is not set. Copy server/.env.example to server/.env and fill it in."
+    )
+
+MODEL = "gemini-2.5-flash"
+
+# A single client is created once at import time and reused for every request.
+client = genai.Client(api_key=API_KEY)
+
+# ---------------------------------------------------------------------------
+# System prompt — the "job description" we give the model on every call.
+# ---------------------------------------------------------------------------
+# Notice what is and is NOT here:
+#  - It defines a ROLE, the TASKS, the SCORING rules, and language/anti-hallucination
+#    constraints.
+#  - It does NOT describe the JSON shape. We delegate the output structure to
+#    `response_schema` below, so the model is freed to focus on REASONING quality
+#    while the library guarantees a valid, schema-correct JSON object.
+SYSTEM_PROMPT = """\
+You are an expert used-car appraiser specializing in the Turkish second-hand
+market (sahibinden.com). You are given the raw, messy text of a single car
+listing and you produce a rigorous valuation.
+
+Your tasks:
+1. EXTRACT the structured facts: brand, model, year, km, fuel_type, transmission,
+   and the listed_price (asking price). If a field is genuinely absent from the
+   text, set it to null. NEVER invent values that are not supported by the text.
+2. ESTIMATE a realistic market price RANGE in Turkish Lira (TRY) for this exact
+   car, based on its segment, model year, mileage, and any condition signals.
+   market_low and market_high bound a typical fair transaction price.
+3. COMPUTE price_diff = listed_price minus the MIDPOINT of your market range.
+   A negative price_diff means the listing is below market (a potential deal).
+4. SCORE the opportunity from 0 to 100 (opportunity_score); higher = better buy.
+   Weigh price vs. market, mileage, age, condition red flags, and demand.
+5. Choose exactly ONE verdict label:
+   - "DEAL"       when at or below fair value with acceptable risk (score >= 65)
+   - "FAIR"       when priced about right (score 40-64)
+   - "OVERPRICED" when above fair value or carrying high risk (score < 40)
+6. List concrete pros and cons as short bullet strings.
+7. Write a negotiation_guide: a practical strategy (opening offer, leverage
+   points, a target price).
+8. Write an expert_comment: a concise, professional overall assessment.
+
+Hard rules:
+- Base everything ONLY on the provided text plus general market knowledge.
+  Do not fabricate specific facts that the text does not imply.
+- All human-readable content (pros, cons, negotiation_guide, expert_comment)
+  MUST be written in TURKISH — the end users are Turkish car buyers.
+- The verdict must be exactly one of the three English labels above.
+- All monetary values are integers in TRY, with no thousands separators.
+"""
 
 
 def analyze_listing(text: str) -> AnalysisResult:
-    """Take raw listing text, return a structured analysis.
+    """Send the raw listing text to Gemini and return a structured analysis.
 
-    For now we ignore 'text' and produce a fixed sample.
-    In Step 3 we will call the Gemini API here.
+    The magic is in `config`:
+    - system_instruction  -> the role/rules above, separate from the user's text
+    - response_mime_type   -> forces the model to answer in JSON (not prose)
+    - response_schema      -> our Pydantic model; the library validates the JSON
+                              against it AND hands us a ready-made AnalysisResult
+    - temperature (low)    -> we want consistent, grounded valuations, not creativity
     """
-
-    return AnalysisResult(
-        listing=ListingData(
-            brand="Volkswagen",
-            model="Passat 1.6 TDI",
-            year=2016,
-            km=185000,
-            fuel_type="Diesel",
-            transmission="Automatic",
-            listed_price=985000,
-        ),
-        verdict="DEAL",
-        opportunity_score=78,
-        market_low=950000,
-        market_high=1150000,
-        price_diff=-65000,  # listed price is 65k below the market midpoint
-        pros=[
-            "Price is below market average",
-            "Well-maintained diesel engine, fuel efficient",
-        ],
-        cons=[
-            "High mileage (185,000 km)",
-            "DSG gearbox service history should be checked",
-        ],
-        negotiation_guide=(
-            "Use the high mileage as leverage. Open at 950,000 TRY, "
-            "request DSG service invoices; if missing, target 920,000."
-        ),
-        expert_comment=(
-            "With a clean service history this price sits in the fair-to-good range. "
-            "A confirmed DSG and timing belt/chain status makes it a deal."
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=text,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            response_mime_type="application/json",
+            response_schema=AnalysisResult,
+            temperature=0.3,
         ),
     )
+
+    # When response_schema is a Pydantic model, the SDK parses the JSON for us.
+    result = response.parsed
+    if result is None:
+        # Defensive fallback: parse the raw JSON text ourselves.
+        result = AnalysisResult.model_validate_json(response.text)
+
+    return result
