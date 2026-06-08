@@ -133,6 +133,7 @@ a { color: inherit; }
   text-transform: uppercase;
   color: var(--text-faint);
 }
+.brand__quota { color: var(--accent-ink); }
 
 .nav {
   display: flex;

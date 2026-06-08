@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { analyzeListing } from "./api";
+import { analyzeListing, getUsage } from "./api";
 import AnalyzeForm from "./components/AnalyzeForm";
 import ResultDashboard from "./components/ResultDashboard";
 import HistoryView from "./components/HistoryView";
@@ -15,6 +15,12 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [usage, setUsage] = useState(null); // { used, limit, remaining, ... }
+
+  // Fetch remaining quota on first load.
+  useEffect(() => {
+    getUsage().then(setUsage).catch(() => {});
+  }, []);
 
   // Theme: default dark (the product's identity), remembered across visits.
   const [theme, setTheme] = useState(() => localStorage.getItem("otoscope-theme") || "dark");
@@ -33,6 +39,8 @@ export default function App() {
       setError(err.message);
     } finally {
       setLoading(false);
+      // Refresh the quota counter whether it succeeded or hit the 429 limit.
+      getUsage().then(setUsage).catch(() => {});
     }
   }
 
@@ -41,7 +49,14 @@ export default function App() {
       <header className="header">
         <div className="brand">
           <span className="brand__mark">OTO<b>SCOPE</b></span>
-          <span className="brand__sub">İlan Analiz Terminali</span>
+          <span className="brand__sub">
+            İlan Analiz Terminali
+            {usage && (
+              <span className="brand__quota">
+                {" · "}BUGÜN {usage.used}/{usage.limit} ANALİZ
+              </span>
+            )}
+          </span>
         </div>
         <nav className="nav">
           <button

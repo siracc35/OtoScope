@@ -52,3 +52,7 @@ export async function deleteHistoryItem(id) {
 export function scrapeUrl(url) {
   return request("/api/scrape", { method: "POST", body: JSON.stringify({ url }) });
 }
+
+export function getUsage() {
+  return request("/api/usage", { method: "GET" });
+}

@@ -59,6 +59,21 @@ class AnalysisRecord(Base):
     expert_comment = Column(Text, nullable=False)
 
 
+class UsageRecord(Base):
+    """One row per (ip, day) — how many analyses that IP ran on that calendar day.
+
+    This is our lightweight rate-limit ledger. We sum it for the global cap and
+    read a single row for the per-IP cap. (day is stored as 'YYYY-MM-DD' text.)
+    """
+
+    __tablename__ = "usage"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ip = Column(String, nullable=False, index=True)
+    day = Column(String, nullable=False, index=True)
+    count = Column(Integer, nullable=False, default=0)
+
+
 # ===========================================================================
 # PYDANTIC MODELS (API contract) — "is the data well-formed at the HTTP edge"
 # ===========================================================================
@@ -180,3 +195,14 @@ class PredictRequest(BaseModel):
 
 class PredictResponse(BaseModel):
     predicted_price: int = Field(..., description="Model-predicted price (TRY)")
+
+
+# ---------------------------------------------------------------------------
+# RATE-LIMIT status (shown in the UI so users see their remaining quota)
+# ---------------------------------------------------------------------------
+class UsageStatus(BaseModel):
+    used: int = Field(..., description="Analyses this IP ran today")
+    limit: int = Field(..., description="Per-IP daily cap")
+    remaining: int = Field(..., description="Per-IP analyses left today")
+    global_used: int = Field(..., description="Analyses all users ran today")
+    global_limit: int = Field(..., description="Global daily cap")

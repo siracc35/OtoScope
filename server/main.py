@@ -15,7 +15,7 @@ would freeze the event loop and stall other requests. By declaring them plain
 no longer blocks everyone else. Right tool for blocking I/O.
 """
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -31,7 +31,9 @@ from models import (
     PredictResponse,
     ScrapeRequest,
     ScrapeResponse,
+    UsageStatus,
 )
+from ratelimit import client_ip, enforce_limits, record_usage, usage_status
 from scraper import ScrapeError, scrape_listing
 
 # Create the table(s) on startup if they don't exist yet.
@@ -58,9 +60,15 @@ def health_check():
 # ANALYZE: Gemini analysis + ML prediction + persist to SQLite
 # ---------------------------------------------------------------------------
 @app.post("/api/analyze", response_model=AnalysisResult)
-def analyze(request: AnalyzeRequest, db: Session = Depends(get_db)) -> AnalysisResult:
+def analyze(
+    payload: AnalyzeRequest, request: Request, db: Session = Depends(get_db)
+) -> AnalysisResult:
+    # 0) Rate limit: reject (429) BEFORE spending a Gemini call if over quota.
+    ip = client_ip(request)
+    enforce_limits(db, ip)
+
     # 1) Ask Gemini for the structured analysis.
-    result = analyze_listing(request.text)
+    result = analyze_listing(payload.text)
 
     # 2) Best-effort: add our own model's price prediction (None if untrained).
     listing = result.listing
@@ -76,7 +84,7 @@ def analyze(request: AnalyzeRequest, db: Session = Depends(get_db)) -> AnalysisR
 
     # 3) Persist this analysis (flattened) for history + future ML training.
     record = AnalysisRecord(
-        raw_text=request.text,
+        raw_text=payload.text,
         brand=listing.brand,
         model=listing.model,
         year=listing.year,
@@ -97,7 +105,16 @@ def analyze(request: AnalyzeRequest, db: Session = Depends(get_db)) -> AnalysisR
     db.add(record)
     db.commit()
 
+    # 4) Count this successful analysis against the caps.
+    record_usage(db, ip)
+
     return result
+
+
+@app.get("/api/usage", response_model=UsageStatus)
+def usage(request: Request, db: Session = Depends(get_db)) -> UsageStatus:
+    """How much quota this visitor has left today (drives the UI counter)."""
+    return UsageStatus(**usage_status(db, client_ip(request)))
 
 
 # ---------------------------------------------------------------------------
