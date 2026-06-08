@@ -1,0 +1,21 @@
+# --- Python ---
+.venv/
+__pycache__/
+*.pyc
+
+# --- Environment variables / secrets (NEVER committed) ---
+.env
+
+# --- Database (local data, not committed) ---
+*.db
+*.sqlite3
+
+# --- Node / Vite (added in Phase 2) ---
+node_modules/
+dist/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
