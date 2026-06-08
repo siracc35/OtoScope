@@ -1,0 +1,3 @@
+# Ignore test HTML and data files from GitHub language statistics
+server/arabam.html linguist-generated=true
+server/arabam_dataset.csv linguist-generated=true
