@@ -12,8 +12,8 @@ $backend = Start-Process -PassThru -NoNewWindow `
     -FilePath "$root\.venv\Scripts\uvicorn.exe" `
     -ArgumentList "main:app", "--app-dir", "server", "--reload", "--port", "8000"
 
-Write-Host "  ✓ Backend  -> http://127.0.0.1:8000  (PID $($backend.Id))" -ForegroundColor Green
-Write-Host "  ✓ Frontend -> http://localhost:5173" -ForegroundColor Green
+Write-Host "  [+] Backend  -> http://127.0.0.1:8000  (PID $($backend.Id))" -ForegroundColor Green
+Write-Host "  [+] Frontend -> http://localhost:5173" -ForegroundColor Green
 Write-Host "Çıkmak için Ctrl+C." -ForegroundColor DarkGray
 
 # Frontend'i ön planda çalıştır; pencere kapanınca backend'i de öldür.

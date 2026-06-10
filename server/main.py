@@ -15,6 +15,8 @@ would freeze the event loop and stall other requests. By declaring them plain
 no longer blocks everyone else. Right tool for blocking I/O.
 """
 
+import threading
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -63,6 +65,28 @@ with engine.begin() as conn:
             pass
 
 app = FastAPI(title="OtoScope API", version="1.0.0")
+
+_retrain_lock = threading.Lock()
+
+def _background_retrain(row_count: int) -> None:
+    """Retrain the ML model in a background thread after every 5 new analyses.
+    Always combines DB rows with arabam.com scraped data for maximum coverage.
+    """
+    if row_count % 5 != 0:
+        return
+    if not _retrain_lock.acquire(blocking=False):
+        return  # already retraining
+    def _run():
+        try:
+            from ml import train
+            print(f"[ml] Auto-retrain triggered at {row_count} DB rows…")
+            train(verbose=True)
+            print("[ml] Auto-retrain complete.")
+        except Exception as e:
+            print(f"[ml] Auto-retrain failed: {e}")
+        finally:
+            _retrain_lock.release()
+    threading.Thread(target=_run, daemon=True).start()
 
 # CORS: allow the Vite dev server (and its 127.0.0.1 alias) to call us.
 app.add_middleware(
@@ -141,6 +165,10 @@ def analyze(
 
     # 4) Count this successful analysis against the caps.
     record_usage(db, ip)
+
+    # 5) Trigger background retrain when enough real data has accumulated.
+    row_count = db.query(AnalysisRecord).count()
+    _background_retrain(row_count)
 
     return result
 

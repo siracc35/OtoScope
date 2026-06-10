@@ -50,6 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   openAppBtn.addEventListener("click", () => {
     const id = openAppBtn.dataset.id;
-    chrome.tabs.create({ url: `http://localhost:5173${id ? `?id=${id}` : ""}` });
+    chrome.tabs.create({ url: `http://localhost:5174${id ? `?id=${id}` : ""}` });
   });
 });

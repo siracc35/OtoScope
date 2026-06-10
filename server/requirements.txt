@@ -11,3 +11,6 @@ scikit-learn
 pandas
 joblib
 python-telegram-bot
+lightgbm
+optuna
+nodriver

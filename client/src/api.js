@@ -1,7 +1,7 @@
 // api.js — the ONLY place the frontend talks to the backend.
 // Centralizing fetch calls means base URL / error handling live in one spot.
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "http://127.0.0.1:8001";
 
 // Shared helper: POST/GET JSON and turn non-2xx responses into thrown Errors,
 // pulling FastAPI's {detail: ...} message out when present.

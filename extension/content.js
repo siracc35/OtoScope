@@ -47,7 +47,7 @@
       btn.style.backgroundColor = "#55ff55";
 
       setTimeout(() => {
-        window.open(`http://localhost:5173?id=${response.id}`, "_blank");
+        window.open(`http://localhost:5174?id=${response.id}`, "_blank");
         btn.innerText = originalText;
         btn.style.backgroundColor = "#FFE800";
         btn.disabled = false;

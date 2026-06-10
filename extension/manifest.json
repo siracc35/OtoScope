@@ -11,7 +11,7 @@
   "host_permissions": [
     "https://www.sahibinden.com/*",
     "https://www.arabam.com/*",
-    "http://localhost:8000/*"
+    "http://localhost:8001/*"
   ],
   "background": {
     "service_worker": "background.js"

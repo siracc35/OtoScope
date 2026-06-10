@@ -239,7 +239,14 @@ export default function ResultDashboard({ result }) {
   return (
     <section className="dash" ref={dashRef}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div className="section-title" style={{ marginBottom: 0 }}>02 / Analiz Sonucu</div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <div className="section-title" style={{ marginBottom: 0 }}>02 / Analiz Sonucu</div>
+          {result.id && (
+            <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text-faint)", letterSpacing: 1 }}>
+              #{String(result.id).padStart(4, "0")}
+            </span>
+          )}
+        </div>
         <div style={{ display: "flex", gap: 8 }} className="no-print">
           {result.id && (
             <button
@@ -300,25 +307,55 @@ export default function ResultDashboard({ result }) {
       </div>
 
       <div className="prices">
-        <div className="stat">
+        {/* 1 — İlan fiyatı */}
+        <div className="stat stat--primary">
           <div className="stat__label">İlan Fiyatı</div>
-          <div className="stat__value">{money(listing.listed_price)}</div>
+          <div className="stat__value stat__value--hero">{money(listing.listed_price)}</div>
+          <div className="stat__sub">Satıcı talep fiyatı</div>
         </div>
+
+        {/* 2 — Piyasa aralığı + pozisyon barı */}
         <div className="stat">
           <div className="stat__label">Piyasa Aralığı</div>
-          <div className="stat__value">{money(result.market_low)}</div>
-          <div className="stat__sub">→ {money(result.market_high)}</div>
-        </div>
-        <div className="stat">
-          <div className="stat__label">Piyasa Farkı</div>
-          <div className={`stat__value ${diffPositive ? "stat__value--pos" : "stat__value--neg"}`}>
-            {diffPositive ? `${money(Math.abs(result.price_diff))} (piyasa altı)` : moneySigned(result.price_diff)}
+          <div className="stat__range">
+            <span>{money(result.market_low)}</span>
+            <span style={{ color: "var(--text-faint)" }}>–</span>
+            <span>{money(result.market_high)}</span>
           </div>
+          {listing.listed_price != null && (
+            <div className="stat__bar-wrap">
+              <div
+                className="stat__bar-fill"
+                style={{
+                  width: `${Math.min(100, Math.max(0,
+                    ((listing.listed_price - result.market_low) /
+                      Math.max(1, result.market_high - result.market_low)) * 100
+                  ))}%`,
+                  background: diffPositive ? "var(--positive)" : "var(--danger)",
+                }}
+              />
+            </div>
+          )}
           <div className="stat__sub">Orta: {money(marketMid)}</div>
         </div>
+
+        {/* 3 — Piyasa farkı */}
+        <div className="stat">
+          <div className="stat__label">Piyasa Farkı</div>
+          <div className={`stat__value stat__value--lg ${diffPositive ? "stat__value--pos" : "stat__value--neg"}`}>
+            {diffPositive
+              ? `↓ ${money(Math.abs(result.price_diff))}`
+              : `↑ ${money(Math.abs(result.price_diff))}`}
+          </div>
+          <div className="stat__sub" style={{ color: diffPositive ? "var(--positive)" : "var(--danger)", opacity: 0.8 }}>
+            {diffPositive ? "piyasa altında" : "piyasa üstünde"}
+          </div>
+        </div>
+
+        {/* 4 — ML tahmini */}
         <div className="stat">
           <div className="stat__label">Model Tahmini (ML)</div>
-          <div className="stat__value">
+          <div className="stat__value stat__value--lg">
             {result.predicted_price ? money(result.predicted_price) : "—"}
           </div>
           <ModelInfoBadge />
