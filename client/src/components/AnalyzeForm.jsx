@@ -65,8 +65,8 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
 
       {scrapeInfo && (
         <div className="banner banner--info" style={{ lineHeight: 1.6 }}>
-          <strong>sahibinden.com otomatik erişimi engelliyor.</strong><br />
-          İlanı açık, <kbd>Ctrl+A</kbd> → <kbd>Ctrl+C</kbd> yapıp aşağıdaki alana yapıştırın — analiz çalışır.
+          <strong>Bu ilan otomatik okunamadı.</strong><br />
+          İlanı tarayıcıda açık tutun, <kbd>Ctrl+A</kbd> → <kbd>Ctrl+C</kbd> yapıp aşağıdaki alana yapıştırın.
         </div>
       )}
 

@@ -97,7 +97,7 @@ export default function App() {
         <div className="brand" style={{ cursor: "pointer" }} onClick={() => setView("analyze")}>
           <span className="brand__mark">OTO<b>SCOPE</b></span>
           <span className="brand__sub">
-            İlan Analiz Terminali
+            Araç Değerleme Sistemi
             {usage && (
               <span className="brand__quota">
                 {usage.exempt
@@ -221,7 +221,7 @@ export default function App() {
 
       <footer className="footer">
         <span>OTOSCOPE © 2026 — GEMINI 2.5 FLASH · FASTAPI · SCIKIT-LEARN</span>
-        <span>SAHİBİNDEN.COM İLAN ANALİZİ</span>
+        <span>TÜRKİYE İKİNCİ EL ARAÇ PİYASASI</span>
       </footer>
     </div>
   );

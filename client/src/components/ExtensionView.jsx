@@ -35,7 +35,7 @@ const STEPS = [
   {
     n: "6",
     title: "Bitti!",
-    desc: "Chrome sağ üstünde OtoScope simgesi çıkar. Sahibinden veya arabam.com\'da herhangi bir ilana gir, simgeye tıkla → otomatik analiz eder.",
+    desc: "Chrome sağ üstünde OtoScope simgesi çıkar. Herhangi bir ilan sayfasına gir, simgeye tıkla → otomatik analiz eder.",
   },
 ];
 
@@ -72,7 +72,7 @@ export default function ExtensionView() {
 
       <div className="panel" style={{ marginBottom: 24 }}>
         <p style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 16, lineHeight: 1.6 }}>
-          Sahibinden.com veya arabam.com'da bir ilana girdiğinde tek tıkla analiz eder —
+          Desteklenen ilan sitelerinde herhangi bir ilana girdiğinde tek tıkla analiz eder —
           kopyala yapıştır yok, link aramak yok.
         </p>
         <button className="btn" onClick={handleDownload} disabled={downloading}>
