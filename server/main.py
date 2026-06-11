@@ -68,19 +68,6 @@ with engine.begin() as conn:
 # Create all tables on startup if they don't exist yet.
 Base.metadata.create_all(bind=engine)
 
-with engine.begin() as conn:
-    for stmt in [
-        "ALTER TABLE analyses ADD COLUMN chronic_issues JSON NOT NULL DEFAULT '[]'",
-        "ALTER TABLE analyses ADD COLUMN user_consensus TEXT NOT NULL DEFAULT ''",
-        "ALTER TABLE analyses ADD COLUMN city TEXT",
-        "ALTER TABLE analyses ADD COLUMN body_type TEXT",
-        "ALTER TABLE analyses ADD COLUMN has_damage BOOLEAN",
-    ]:
-        try:
-            conn.execute(text(stmt))
-        except Exception:
-            pass
-
 app = FastAPI(title="OtoScope API", version="1.0.0")
 
 
