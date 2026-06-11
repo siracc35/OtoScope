@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { analyzeListing, getHistoryItem, getMe, getUsage, setToken } from "./api";
 import AnalyzeForm from "./components/AnalyzeForm";
 import AuthModal from "./components/AuthModal";
-import BatchAnalyzeView from "./components/BatchAnalyzeView";
 import CompareView from "./components/CompareView";
 import ExtensionView from "./components/ExtensionView";
 import HistoryView from "./components/HistoryView";
@@ -27,7 +26,7 @@ function normalizeResult(data) {
   };
 }
 
-const VIEWS = ["analyze", "history", "watchlist", "compare", "trends", "batch", "extension"];
+const VIEWS = ["analyze", "history", "watchlist", "compare", "trends", "extension"];
 
 export default function App() {
   const [view, setView] = useState("analyze");
@@ -87,7 +86,6 @@ export default function App() {
     watchlist: "Favoriler",
     compare:   "Karşılaştır",
     trends:    "Trend",
-    batch:     "Toplu",
     extension: "Extension",
   };
 
@@ -207,15 +205,6 @@ export default function App() {
       )}
 
       {view === "trends" && <TrendsView />}
-
-      {view === "batch" && (
-        <BatchAnalyzeView
-          onSelectResult={(r) => {
-            setResult(r);
-            setView("analyze");
-          }}
-        />
-      )}
 
       {view === "extension" && user && <ExtensionView />}
 

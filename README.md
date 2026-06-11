@@ -59,8 +59,7 @@ The ML model bootstraps on first run and retrains automatically every 5 new anal
 - Watchlist — save listings to revisit
 - Compare — side-by-side comparison of multiple analyses
 - Trends — price history charts by brand/model
-- Batch analysis — analyze up to 10 listings at once
-- Chrome Extension — one-click analysis from any supported listing page
+- Chrome Extension — one-click analysis from any listing page
 - Dark / light theme
 - Rate limiting — 3/day guests, 100/day registered users
 
