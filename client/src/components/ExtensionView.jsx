@@ -72,7 +72,7 @@ export default function ExtensionView() {
 
       <div className="panel" style={{ marginBottom: 24 }}>
         <p style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 16, lineHeight: 1.6 }}>
-          Desteklenen ilan sitelerinde herhangi bir ilana girdiğinde tek tıkla analiz eder —
+          İlan sayfasına girdiğinde tek tıkla analiz eder —
           kopyala yapıştır yok, link aramak yok.
         </p>
         <button className="btn" onClick={handleDownload} disabled={downloading}>
