@@ -193,6 +193,10 @@ a { color: inherit; }
   background: var(--accent);
   border-color: var(--accent);
 }
+.nav__btn--highlight {
+  color: var(--accent-ink);
+  border-color: var(--accent-ink);
+}
 
 /* ----------------------------------------------------------- section bits -- */
 .label {

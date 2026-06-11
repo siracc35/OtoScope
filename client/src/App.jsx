@@ -94,7 +94,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="brand">
+        <div className="brand" style={{ cursor: "pointer" }} onClick={() => setView("analyze")}>
           <span className="brand__mark">OTO<b>SCOPE</b></span>
           <span className="brand__sub">
             İlan Analiz Terminali
@@ -111,7 +111,7 @@ export default function App() {
           {VIEWS.filter((v) => v !== "extension" || !!user).map((v) => (
             <button
               key={v}
-              className={`nav__btn ${view === v ? "nav__btn--active" : ""}`}
+              className={`nav__btn ${view === v ? "nav__btn--active" : ""} ${v === "extension" && user && view !== "extension" ? "nav__btn--highlight" : ""}`}
               onClick={() => setView(v)}
             >
               {NAV_LABELS[v]}
@@ -145,6 +145,16 @@ export default function App() {
           }}
           onClose={() => setShowAuth(false)}
         />
+      )}
+
+      {view === "analyze" && !user && (
+        <div
+          className="banner banner--info"
+          style={{ marginBottom: 20, cursor: "pointer" }}
+          onClick={() => setShowAuth(true)}
+        >
+          Günde <strong>3 analiz</strong> hakkın var. Hesap açarsan <strong>100 analize</strong> çıkar + Chrome Extension'a erişirsin. → <strong>Giriş yap / Kayıt ol</strong>
+        </div>
       )}
 
       {view === "analyze" && (
