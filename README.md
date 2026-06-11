@@ -1,99 +1,95 @@
-<div align="center">
-  <h1>🚗 OtoScope</h1>
-  <p><strong>AI-powered analysis and valuation tool for Turkish used-car listings (sahibinden.com & arabam.com)</strong></p>
-  
-  <p>
-    <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python" />
-    <img src="https://img.shields.io/badge/FastAPI-0.100+-009688.svg" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/React-18+-61dafb.svg" alt="React" />
-    <img src="https://img.shields.io/badge/AI-Google_Gemini-4285F4.svg" alt="Gemini" />
-    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
-  </p>
-</div>
+# OtoScope — AI-Powered Used Car Analysis
 
-<br />
+> Paste a Turkish used car listing → get an instant AI valuation, market comparison, and negotiation guide.
 
-OtoScope takes the raw text of a used-car listing, sends it to **Google Gemini** through a fast backend, and returns a structured, professional analysis. It acts as your personal "Oto Sanayi Ustası", giving you an estimated market value, an opportunity score, pros/cons, and even chronic issues for that specific vehicle.
+**Live:** https://otoscope-production.up.railway.app
 
-## ✨ Features
+---
 
-- 🧠 **AI-Powered Analysis:** Leverages Google Gemini (with smart fallback routing) to understand messy listing text.
-- 💰 **Market Valuation:** Computes a realistic market price range and compares it to the asking price.
-- ⚠️ **Chronic Issues Detection:** Automatically flags known engine/transmission chronic issues for the specific car model.
-- 🗣️ **User Consensus:** Summarizes general user experiences and satisfaction for the vehicle.
-- 🤖 **Local ML Price Model:** Includes a custom `scikit-learn` Random Forest model trained daily on historical data for an independent price check.
-- 🔌 **Browser Extension:** Includes a Chrome Extension to analyze listings on sahibinden.com and arabam.com with a single click.
+## What it does
 
-## 🏗 Architecture
+OtoScope analyzes used car listings using a combination of large language models and a machine learning price model. Paste the listing text and get:
 
-```mermaid
-graph LR
-    A[React / Vite UI] -- HTTP --> B(FastAPI Backend)
-    B -- Extracts Data --> C{Google Gemini}
-    C -- Returns JSON --> B
-    B -- Predicts Price --> D[scikit-learn ML]
-    B -- Saves History --> E[(SQLite)]
-    F[Chrome Extension] -- Sends Text --> B
+- **Verdict** — DEAL / FAIR / OVERPRICED with an opportunity score (0–100)
+- **Market range** — estimated low and high for that car in the current market
+- **Price delta** — how far the listing is from the market midpoint
+- **Pros / cons** — extracted from the listing and cross-referenced with known model issues
+- **Negotiation guide** — concrete talking points to bring the price down
+- **Chronic issues** — known reliability problems for that specific model
+
+---
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Backend | FastAPI, SQLAlchemy, PostgreSQL |
+| AI | Google Gemini 2.5 Flash |
+| ML | scikit-learn RandomForest (price prediction, retrains on accumulated data) |
+| Frontend | React, Vite |
+| Auth | Email + password, JWT (30-day sessions) |
+| Browser | Chrome Extension (Manifest V3) |
+| Hosting | Railway |
+
+---
+
+## Architecture
+
+```
+Browser / Extension
+      │
+      ▼
+React Frontend (Vite)
+      │  REST
+      ▼
+FastAPI Backend
+  ├── Gemini 2.5 Flash  →  structured analysis (verdict, pros/cons, negotiation)
+  ├── scikit-learn       →  price prediction from listing features
+  └── PostgreSQL         →  persist analyses, users, rate limits
 ```
 
-| Layer         | Responsibility                                               |
-|---------------|--------------------------------------------------------------|
-| `client/`     | React + Vite UI — presentation only, no secrets              |
-| `extension/`  | Chrome/Edge Extension to grab listing text instantly         |
-| `server/`     | FastAPI backend, ML models, Gemini integration, and SQLite DB|
+The ML model bootstraps on first run and retrains automatically every 5 new analyses once real data accumulates.
 
-## 🚀 Getting Started
+---
 
-### 1. Backend (FastAPI)
+## Features
 
-```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/OtoScope.git
-cd OtoScope
+- URL or text input — paste a listing URL or raw text
+- History — all past analyses saved and searchable
+- Watchlist — save listings to revisit
+- Compare — side-by-side comparison of multiple analyses
+- Trends — price history charts by brand/model
+- Batch analysis — analyze up to 10 listings at once
+- Chrome Extension — one-click analysis from any supported listing page
+- Dark / light theme
+- Rate limiting — 3/day guests, 100/day registered users
 
-# Create and activate a virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1        # Windows
-# source .venv/bin/activate          # macOS / Linux
+---
 
-# Install dependencies
-pip install -r server/requirements.txt
-
-# Configure your API key
-cp server/.env.example server/.env   # Edit server/.env and set GEMINI_API_KEY
-```
-
-> **Note:** The backend uses a fallback system (`gemini-3.1-flash-lite`, `gemini-3.5-flash`, etc.) to bypass rate limits automatically.
+## Local development
 
 ```bash
-# (Optional) Train the local ML price model
-python server/ml.py train
+# Backend
+cd server
+python -m venv .venv && .venv/Scripts/activate
+pip install -r requirements.txt
+# create .env with GEMINI_API_KEY=your_key
+uvicorn main:app --reload --port 8000
 
-# Run the API
-uvicorn main:app --app-dir server --reload
-```
-*API runs at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.*
-
-### 2. Frontend (React)
-
-```bash
+# Frontend
 cd client
 npm install
 npm run dev
 ```
-*Frontend runs at `http://localhost:5173`.*
 
-### 3. Chrome Extension
+---
 
-1. Open Google Chrome and navigate to `chrome://extensions/`.
-2. Enable **"Developer mode"** in the top right corner.
-3. Click **"Load unpacked"** and select the `OtoScope/extension/` folder.
-4. Go to any car listing on **sahibinden.com** or **arabam.com** and click the floating "OtoScope ile Analiz Et" button!
+## Environment variables
 
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and request features. Make sure to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
-
-## 📄 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+| Variable | Description |
+|---|---|
+| `GEMINI_API_KEY` | Google AI Studio key |
+| `DATABASE_URL` | PostgreSQL connection string (defaults to local SQLite) |
+| `JWT_SECRET` | Secret for signing JWT tokens |
+| `RATE_LIMIT_PER_IP` | Guest daily cap (default: 3) |
+| `RATE_LIMIT_PER_USER` | Registered user daily cap (default: 100) |
