@@ -154,7 +154,7 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/health")
 def health_check():
     return {"status": "ok", "service": "OtoScope API"}
 
