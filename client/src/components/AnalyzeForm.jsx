@@ -65,7 +65,7 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
 
       {scrapeInfo && (
         <div className="banner banner--info" style={{ lineHeight: 1.6 }}>
-          <strong>Bu ilan otomatik okunamadı.</strong><br />
+          <strong>Bu ilan bot koruması nedeniyle otomatik okunamadı.</strong><br />
           İlan sayfasını açın, tüm metni kopyalayın (<kbd>Ctrl+A</kbd> → <kbd>Ctrl+C</kbd>) ve aşağıdaki alana yapıştırın.
         </div>
       )}
