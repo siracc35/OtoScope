@@ -59,10 +59,13 @@ from scraper import ScrapeError, scrape_listing
 
 # If the users table exists with the old Google-auth schema (no password_hash),
 # drop it so create_all can recreate it with the new email+password schema.
-with engine.begin() as conn:
-    try:
+# Each check runs in its OWN transaction — in PostgreSQL a failed statement
+# aborts the whole transaction, so check and drop must be separate.
+try:
+    with engine.begin() as conn:
         conn.execute(text("SELECT password_hash FROM users LIMIT 1"))
-    except Exception:
+except Exception:
+    with engine.begin() as conn:
         conn.execute(text("DROP TABLE IF EXISTS users"))
 
 # Create all tables on startup if they don't exist yet.
@@ -386,10 +389,16 @@ def predict(request: PredictRequest) -> PredictResponse:
 def trends(brand: str | None = None, db: Session = Depends(get_db)) -> list[TrendSeries]:
     from sqlalchemy import func as sqlfunc, text as sqltext
 
+    is_pg = not str(engine.url).startswith("sqlite")
+    if is_pg:
+        month_expr = sqlfunc.to_char(AnalysisRecord.created_at, "YYYY-MM").label("month")
+    else:
+        month_expr = sqlfunc.strftime("%Y-%m", AnalysisRecord.created_at).label("month")
+
     query = db.query(
         AnalysisRecord.brand,
         AnalysisRecord.model,
-        sqlfunc.strftime("%Y-%m", AnalysisRecord.created_at).label("month"),
+        month_expr,
         sqlfunc.avg(AnalysisRecord.listed_price).label("avg_price"),
         sqlfunc.count(AnalysisRecord.id).label("count"),
     ).filter(
