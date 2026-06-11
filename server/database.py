@@ -21,7 +21,14 @@ if DATABASE_URL.startswith("postgres://"):
 # check_same_thread is SQLite-only; PostgreSQL doesn't accept it
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
-engine = create_engine(DATABASE_URL, connect_args=_connect_args)
+try:
+    engine = create_engine(DATABASE_URL, connect_args=_connect_args)
+except Exception as _e:
+    import sys
+    print(f"[db] WARNING: could not parse DATABASE_URL ({_e!r}), falling back to SQLite", file=sys.stderr)
+    DATABASE_URL = _SQLITE_FALLBACK
+    _connect_args = {"check_same_thread": False}
+    engine = create_engine(DATABASE_URL, connect_args=_connect_args)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
