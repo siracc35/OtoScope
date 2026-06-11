@@ -1,7 +1,7 @@
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== "ANALYZE") return;
 
-  fetch("http://localhost:8001/api/analyze", {
+  fetch("https://otoscope-production.up.railway.app/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: message.text }),
