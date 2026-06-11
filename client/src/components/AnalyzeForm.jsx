@@ -46,7 +46,7 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
         <input
           className="input"
           type="url"
-          placeholder="İlan URL'sini yapıştır → arabam.com, araba.com, otosor.com.tr …"
+          placeholder="İlan URL'sini yapıştır…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -59,11 +59,6 @@ export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }
         >
           {scraping ? "Çekiliyor…" : loading ? "Analiz…" : "Analiz Et →"}
         </button>
-      </div>
-
-      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, marginBottom: 14 }}>
-        Desteklenen siteler: {SUPPORTED_SITES.join(" · ")}
-        {" "}<span style={{ opacity: 0.6 }}>* sahibinden bot koruması olduğunda çalışmayabilir</span>
       </div>
 
       {scrapeMsg && <div className="banner banner--error">{scrapeMsg}</div>}
