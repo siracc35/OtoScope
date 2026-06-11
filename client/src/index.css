@@ -637,6 +637,57 @@ a { color: inherit; }
   .empty { padding: 32px 16px; font-size: 12px; }
 }
 
+/* --------------------------------------------------------------- extension -- */
+.ext-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ext-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 16px 20px;
+}
+.ext-steps .ext-step:first-child { border-top: 1px solid var(--border); }
+
+.ext-step__num {
+  font-family: var(--display);
+  font-size: 28px;
+  color: var(--accent-ink);
+  line-height: 1;
+  min-width: 28px;
+  padding-top: 2px;
+}
+
+.ext-step__title {
+  font-family: var(--heading);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.ext-step__desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.ext-code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  padding: 1px 6px;
+  color: var(--accent-ink);
+}
+
 /* ----------------------------------------------------------------- modal --- */
 .modal-backdrop {
   position: fixed;

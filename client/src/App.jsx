@@ -4,6 +4,7 @@ import AnalyzeForm from "./components/AnalyzeForm";
 import AuthModal from "./components/AuthModal";
 import BatchAnalyzeView from "./components/BatchAnalyzeView";
 import CompareView from "./components/CompareView";
+import ExtensionView from "./components/ExtensionView";
 import HistoryView from "./components/HistoryView";
 import ResultDashboard from "./components/ResultDashboard";
 import TrendsView from "./components/TrendsView";
@@ -26,7 +27,7 @@ function normalizeResult(data) {
   };
 }
 
-const VIEWS = ["analyze", "history", "watchlist", "compare", "trends", "batch"];
+const VIEWS = ["analyze", "history", "watchlist", "compare", "trends", "batch", "extension"];
 
 export default function App() {
   const [view, setView] = useState("analyze");
@@ -87,6 +88,7 @@ export default function App() {
     compare:   "Karşılaştır",
     trends:    "Trend",
     batch:     "Toplu",
+    extension: "Extension",
   };
 
   return (
@@ -106,7 +108,7 @@ export default function App() {
           </span>
         </div>
         <nav className="nav">
-          {VIEWS.map((v) => (
+          {VIEWS.filter((v) => v !== "extension" || !!user).map((v) => (
             <button
               key={v}
               className={`nav__btn ${view === v ? "nav__btn--active" : ""}`}
@@ -204,6 +206,8 @@ export default function App() {
           }}
         />
       )}
+
+      {view === "extension" && user && <ExtensionView />}
 
       <footer className="footer">
         <span>OTOSCOPE © 2026 — GEMINI 2.5 FLASH · FASTAPI · SCIKIT-LEARN</span>

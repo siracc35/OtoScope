@@ -558,6 +558,37 @@ def batch_analyze(
 
 
 # ---------------------------------------------------------------------------
+# EXTENSION DOWNLOAD — auth gerekli, ZIP olarak döner
+# ---------------------------------------------------------------------------
+@app.get("/api/extension/download")
+def download_extension(request: Request):
+    import io
+    import zipfile
+    from fastapi.responses import StreamingResponse
+
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Giriş yapılmamış.")
+
+    ext_dir = Path(__file__).parent.parent / "extension"
+    if not ext_dir.exists():
+        raise HTTPException(status_code=404, detail="Extension bulunamadı.")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in ext_dir.iterdir():
+            if f.is_file():
+                zf.write(f, f.name)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=otoscope-extension.zip"},
+    )
+
+
+# ---------------------------------------------------------------------------
 # FRONTEND — tek servis deploy için Vite build'ini sun
 # ---------------------------------------------------------------------------
 _DIST = Path(__file__).parent.parent / "client" / "dist"

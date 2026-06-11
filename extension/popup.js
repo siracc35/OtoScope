@@ -50,10 +50,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   openAppBtn.addEventListener("click", async () => {
     const id = openAppBtn.dataset.id;
-    const targetUrl = `http://localhost:5174${id ? `?id=${id}` : ""}`;
+    const base = "https://otoscope-production.up.railway.app";
+    const targetUrl = `${base}${id ? `?id=${id}` : ""}`;
 
-    // Zaten açık bir OtoScope sekmesi varsa onu kullan, yoksa yeni aç.
-    const [existing] = await chrome.tabs.query({ url: "http://localhost:5174/*" });
+    const [existing] = await chrome.tabs.query({ url: `${base}/*` });
     if (existing) {
       chrome.tabs.update(existing.id, { url: targetUrl, active: true });
       chrome.windows.update(existing.windowId, { focused: true });
