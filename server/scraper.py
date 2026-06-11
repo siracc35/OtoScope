@@ -274,6 +274,15 @@ def _scrape_generic(url: str, verify: bool = True) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+def _resolve_short_link(url: str) -> str:
+    """Follow redirects on short links (e.g. shbd.io) to get the real URL."""
+    try:
+        resp = requests.head(url, headers=_HEADERS, timeout=10, allow_redirects=True)
+        return resp.url
+    except requests.RequestException:
+        return url
+
+
 def scrape_listing(url: str) -> str:
     """Fetch a listing URL and return cleaned text ready for the AI analyzer.
 
@@ -282,6 +291,10 @@ def scrape_listing(url: str) -> str:
     url = url.strip()
     if not url.startswith("http"):
         url = "https://" + url
+
+    # Resolve known short-link domains before domain validation
+    if "shbd.io" in url:
+        url = _resolve_short_link(url)
 
     if not _is_supported(url):
         supported = ", ".join(sorted(SUPPORTED_DOMAINS))

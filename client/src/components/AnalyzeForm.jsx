@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { scrapeUrl } from "../api";
 
-const SUPPORTED_SITES = ["arabam.com", "araba.com", "otosor.com.tr", "otoplus.com.tr", "fordikinciel.com", "sahibinden.com*"];
+const SUPPORTED_SITES = ["arabam.com", "araba.com", "otosor.com.tr", "otoplus.com.tr", "fordikinciel.com", "sahibinden.com*", "shbd.io (mobil)"];
 
 export default function AnalyzeForm({ text, setText, onAnalyze, loading, error }) {
   const [url, setUrl] = useState("");
