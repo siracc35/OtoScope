@@ -560,9 +560,18 @@ a { color: inherit; }
   .header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 14px;
-    padding: 16px 0 14px;
-    margin-bottom: 20px;
+    gap: 12px;
+    padding: 14px 0 12px;
+    margin-bottom: 18px;
+  }
+
+  .brand__mark { font-size: 32px; }
+  .brand__sub {
+    font-size: 10px;
+    letter-spacing: 1px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
   }
 
   /* nav: scrollable single row, hide scrollbar visually */
@@ -572,21 +581,60 @@ a { color: inherit; }
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 5px;
   }
   .nav::-webkit-scrollbar { display: none; }
-  .nav__btn { flex-shrink: 0; padding: 7px 12px; font-size: 11px; }
+  .nav__btn { flex-shrink: 0; padding: 8px 12px; font-size: 11px; min-height: 36px; }
+
+  /* form: stack URL input and button vertically */
+  .form__bar { flex-direction: column; gap: 8px; }
+  .form__bar .btn { width: 100%; }
+
+  /* textarea: shorter on mobile */
+  .textarea { min-height: 140px; font-size: 14px; }
 
   /* dashboard grids */
   .dash__top, .proscons, .two-col { grid-template-columns: 1fr; }
   .prices { grid-template-columns: 1fr 1fr; }
 
-  /* history card: simpler 2-col layout */
-  .hist-card { grid-template-columns: 1fr auto; gap: 8px; }
+  /* score: shrink the giant number */
+  .score { text-align: left; }
+  .score__num { font-size: 60px; }
+  .score__num small { font-size: 20px; }
+
+  /* stat values: slightly smaller */
+  .stat__value--hero { font-size: 20px; }
+  .stat__value { font-size: 16px; }
+  .stat { padding: 14px 16px; }
+
+  /* verdict badge: slightly smaller */
+  .verdict__badge { font-size: 26px; padding: 3px 12px 0; }
+  .verdict__car { font-size: 18px; }
+
+  /* history card: 2-col clean layout
+     children (with id hidden): car-div | chip
+                                 price-div | del-btn */
+  .hist-card {
+    grid-template-columns: 1fr auto;
+    gap: 8px 12px;
+    padding: 14px 16px;
+  }
   .hist-card__id { display: none; }
+  /* chip: align right, vertically centered */
+  .hist-card .chip { align-self: center; font-size: 15px; }
+  /* price+date div: align content right */
+  .hist-card > div:last-of-type { text-align: right; }
+  .hist-card__price { font-size: 15px; }
+  /* delete button: align bottom-right */
+  .hist-card__del { align-self: center; }
+
+  /* compare table: allow horizontal scroll */
+  .compare-table { font-size: 11px; }
+  .compare-table th, .compare-table td { padding: 8px 10px; }
 
   /* footer: stack vertically */
-  .footer { flex-direction: column; gap: 6px; }
+  .footer { flex-direction: column; gap: 6px; font-size: 10px; }
+  .empty { padding: 32px 16px; font-size: 12px; }
 }
 
 /* btn--primary alias (same as default .btn) */
