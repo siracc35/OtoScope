@@ -48,8 +48,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  openAppBtn.addEventListener("click", () => {
+  openAppBtn.addEventListener("click", async () => {
     const id = openAppBtn.dataset.id;
-    chrome.tabs.create({ url: `http://localhost:5174${id ? `?id=${id}` : ""}` });
+    const targetUrl = `http://localhost:5174${id ? `?id=${id}` : ""}`;
+
+    // Zaten açık bir OtoScope sekmesi varsa onu kullan, yoksa yeni aç.
+    const [existing] = await chrome.tabs.query({ url: "http://localhost:5174/*" });
+    if (existing) {
+      chrome.tabs.update(existing.id, { url: targetUrl, active: true });
+      chrome.windows.update(existing.windowId, { focused: true });
+    } else {
+      chrome.tabs.create({ url: targetUrl });
+    }
   });
 });

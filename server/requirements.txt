@@ -13,4 +13,3 @@ joblib
 python-telegram-bot
 lightgbm
 optuna
-nodriver

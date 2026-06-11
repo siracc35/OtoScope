@@ -89,6 +89,11 @@
   background: #fee2e2;
   border-color: #fca5a5;
 }
+:root[data-theme="light"] .v-risk {
+  color: #9a3412;
+  background: #ffedd5;
+  border-color: #fdba74;
+}
 
 * {
   box-sizing: border-box;
@@ -358,6 +363,11 @@ a { color: inherit; }
   color: #fca5a5;
   background: rgba(239, 68, 68, 0.10);
   border-color: rgba(239, 68, 68, 0.30);
+}
+.v-risk {
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.10);
+  border-color: rgba(249, 115, 22, 0.35);
 }
 
 .verdict__car {

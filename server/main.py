@@ -15,10 +15,13 @@ would freeze the event loop and stall other requests. By declaring them plain
 no longer blocks everyone else. Right tool for blocking I/O.
 """
 
+import os
 import threading
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -66,6 +69,55 @@ with engine.begin() as conn:
 
 app = FastAPI(title="OtoScope API", version="1.0.0")
 
+
+def compute_opportunity_score(result: AnalysisResult) -> int:
+    """
+    Gemini'nin sabit değer üretme sorununu bypass etmek için skoru
+    analiz sonuçlarından server-side hesapla.
+    """
+    from datetime import datetime
+    score = 55
+
+    # Fiyat pozisyonu — Türkiye piyasasında satıcılar genelde %5-10 üstünde açar,
+    # bu normal; %20+ pahalı ya da %10+ ucuz gerçek bir sinyal.
+    # ±30 puanlık bant, %30'da platoya ulaşır.
+    market_mid = (result.market_low + result.market_high) / 2 if result.market_low and result.market_high else None
+    if market_mid and market_mid > 0 and result.listing.listed_price:
+        pct = max(-0.30, min(0.30, result.price_diff / market_mid))
+        score -= int(pct * 60)
+
+    # Hasar kaydı — ciddi risk
+    if result.listing.has_damage:
+        score -= 18
+
+    # Kilometre cezası
+    km = result.listing.km or 0
+    if km > 300_000:
+        score -= 15
+    elif km > 200_000:
+        score -= 8
+    elif km > 150_000:
+        score -= 4
+
+    # Yaş cezası
+    year = result.listing.year
+    if year:
+        age = datetime.now().year - year
+        if age > 20:
+            score -= 8
+        elif age > 15:
+            score -= 4
+
+    # Pros/cons dengesi — Gemini 3-4 madde verir, net fark önemli sinyal
+    pros_count = len(result.pros or [])
+    cons_count = len(result.cons or [])
+    score += (pros_count - cons_count) * 5
+
+    # Kronik sorun sayısı
+    score -= len(result.chronic_issues or []) * 2
+
+    return max(0, min(100, score))
+
 _retrain_lock = threading.Lock()
 
 def _background_retrain(row_count: int) -> None:
@@ -88,10 +140,14 @@ def _background_retrain(row_count: int) -> None:
             _retrain_lock.release()
     threading.Thread(target=_run, daemon=True).start()
 
-# CORS: allow the Vite dev server (and its 127.0.0.1 alias) to call us.
+# CORS: production'da ALLOWED_ORIGINS env var'ı ile kısıtla.
+# Varsayılan "*" — geliştirme ve Railway single-service için uygundur.
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+_allow_origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allow_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -116,6 +172,7 @@ def analyze(
 
     # 1) Ask Gemini for the structured analysis.
     result = analyze_listing(payload.text)
+    result.opportunity_score = compute_opportunity_score(result)
 
     # 2) Best-effort: add our own model's price prediction (None if untrained).
     listing = result.listing
@@ -408,6 +465,7 @@ def batch_analyze(
         try:
             enforce_limits(db, ip)
             result = analyze_listing(text)
+            result.opportunity_score = compute_opportunity_score(result)
             listing = result.listing
             if all(v is not None for v in (listing.brand, listing.year, listing.km,
                                            listing.fuel_type, listing.transmission)):
@@ -447,3 +505,11 @@ def batch_analyze(
             results.append(BatchResultItem(index=i, success=False, error=str(exc)))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# FRONTEND — tek servis deploy için Vite build'ini sun
+# ---------------------------------------------------------------------------
+_DIST = Path(__file__).parent.parent / "client" / "dist"
+if _DIST.exists():
+    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="frontend")

@@ -122,7 +122,7 @@ class AnalysisResult(BaseModel):
     listing: ListingData
 
     verdict: str = Field(..., description="Short verdict label: DEAL | FAIR | OVERPRICED")
-    opportunity_score: int = Field(..., ge=0, le=100, description="Opportunity score 0-100")
+    opportunity_score: int = Field(0, description="Computed server-side — not set by Gemini")
 
     market_low: int = Field(..., description="Estimated market floor (TRY)")
     market_high: int = Field(..., description="Estimated market ceiling (TRY)")

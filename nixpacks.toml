@@ -1,0 +1,14 @@
+[phases.setup]
+nixPkgs = ["python313", "nodejs_22"]
+
+[phases.install]
+cmds = [
+  "pip install -r server/requirements.txt",
+  "cd client && npm install",
+]
+
+[phases.build]
+cmds = ["cd client && npm run build"]
+
+[start]
+cmd = "cd server && uvicorn main:app --host 0.0.0.0 --port $PORT"

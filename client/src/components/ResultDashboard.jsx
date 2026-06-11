@@ -11,7 +11,7 @@ function exportPDF(result) {
     let y = 0;
 
     const { listing } = result;
-    const v = verdictMeta(result.verdict);
+    const v = verdictMeta(result.verdict, result.price_diff);
     const carName = [listing.brand, listing.model].filter(Boolean).join(" ") || "Araç";
     const now = new Date().toLocaleString("tr-TR");
 
@@ -199,7 +199,7 @@ function ModelInfoBadge() {
 
 export default function ResultDashboard({ result }) {
   const { listing } = result;
-  const v = verdictMeta(result.verdict);
+  const v = verdictMeta(result.verdict, result.price_diff);
   const dashRef = useRef(null);
 
   const marketMid = Math.round((result.market_low + result.market_high) / 2);

@@ -54,11 +54,13 @@ export default function App() {
     localStorage.setItem("otoscope-theme", theme);
   }, [theme]);
 
-  async function handleAnalyze() {
+  async function handleAnalyze(overrideText) {
+    const target = overrideText ?? text;
+    if (!target.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await analyzeListing(text);
+      const data = await analyzeListing(target);
       setResult(data);
     } catch (err) {
       setError(err.message);

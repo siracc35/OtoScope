@@ -38,11 +38,15 @@ export function dateTime(iso) {
 }
 
 // Map the controlled English verdict enum to display label + CSS modifier.
-export function verdictMeta(verdict) {
+// price_diff < 0 means listing is below market — if OVERPRICED, risk is the issue, not price.
+export function verdictMeta(verdict, price_diff) {
   switch (verdict) {
     case "DEAL":
       return { label: "FIRSAT", cls: "v-deal" };
     case "OVERPRICED":
+      if (price_diff != null && price_diff < 0) {
+        return { label: "RİSKLİ", cls: "v-risk" };
+      }
       return { label: "PAHALI", cls: "v-over" };
     case "FAIR":
     default:
