@@ -63,6 +63,17 @@ class AnalysisRecord(Base):
     chronic_issues = Column(JSON, nullable=False)
     user_consensus = Column(Text, nullable=False)
 
+class UserRecord(Base):
+    """One row per registered user (email + bcrypt password hash)."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, unique=True, index=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class UsageRecord(Base):
     """One row per (ip, day) — how many analyses that IP ran on that calendar day.
 
@@ -221,6 +232,29 @@ class PredictResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # RATE-LIMIT status (shown in the UI so users see their remaining quota)
 # ---------------------------------------------------------------------------
+class RegisterRequest(BaseModel):
+    email: str = Field(..., min_length=5, description="User email address")
+    password: str = Field(..., min_length=6, description="Password (min 6 chars)")
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    email: str
+    user_id: int
+
+
+class UserInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+
+
 class UsageStatus(BaseModel):
     used: int = Field(..., description="Analyses this IP ran today")
     limit: int = Field(..., description="Per-IP daily cap")

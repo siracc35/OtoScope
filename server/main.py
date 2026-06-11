@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from analyzer import analyze_listing
+from auth import create_jwt, get_current_user, hash_password, verify_password
 from database import Base, engine, get_db
 from ml import get_model_info, predict_price
 from models import (
@@ -36,20 +37,33 @@ from models import (
     BatchResultItem,
     HistoryItem,
     ListingData,
+    LoginRequest,
+    LoginResponse,
     ModelInfo,
     PredictRequest,
     PredictResponse,
+    RegisterRequest,
     ScrapeRequest,
     ScrapeResponse,
     TrendPoint,
     TrendSeries,
     UsageStatus,
+    UserInfo,
+    UserRecord,
     WatchlistAddRequest,
     WatchlistItem,
     WatchlistRecord,
 )
 from ratelimit import client_ip, enforce_limits, record_usage, usage_status
 from scraper import ScrapeError, scrape_listing
+
+# If the users table exists with the old Google-auth schema (no password_hash),
+# drop it so create_all can recreate it with the new email+password schema.
+with engine.begin() as conn:
+    try:
+        conn.execute(text("SELECT password_hash FROM users LIMIT 1"))
+    except Exception:
+        conn.execute(text("DROP TABLE IF EXISTS users"))
 
 # Create all tables on startup if they don't exist yet.
 Base.metadata.create_all(bind=engine)
@@ -160,6 +174,41 @@ def health_check():
 
 
 # ---------------------------------------------------------------------------
+# AUTH: register / login / me
+# ---------------------------------------------------------------------------
+@app.post("/api/auth/register", response_model=LoginResponse, status_code=201)
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> LoginResponse:
+    email = payload.email.lower().strip()
+    if db.query(UserRecord).filter(UserRecord.email == email).first():
+        raise HTTPException(status_code=409, detail="Bu email adresi zaten kayıtlı.")
+    user = UserRecord(email=email, password_hash=hash_password(payload.password))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return LoginResponse(token=create_jwt(user.id, user.email), email=user.email, user_id=user.id)
+
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
+    email = payload.email.lower().strip()
+    user = db.query(UserRecord).filter(UserRecord.email == email).first()
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Email veya şifre hatalı.")
+    return LoginResponse(token=create_jwt(user.id, user.email), email=user.email, user_id=user.id)
+
+
+@app.get("/api/auth/me", response_model=UserInfo)
+def me(request: Request, db: Session = Depends(get_db)) -> UserRecord:
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Giriş yapılmamış.")
+    record = db.get(UserRecord, int(user["sub"]))
+    if not record:
+        raise HTTPException(status_code=401, detail="Kullanıcı bulunamadı.")
+    return record
+
+
+# ---------------------------------------------------------------------------
 # ANALYZE: Gemini analysis + ML prediction + persist to SQLite
 # ---------------------------------------------------------------------------
 @app.post("/api/analyze", response_model=AnalysisResult)
@@ -168,7 +217,8 @@ def analyze(
 ) -> AnalysisResult:
     # 0) Rate limit: reject (429) BEFORE spending a Gemini call if over quota.
     ip = client_ip(request)
-    enforce_limits(db, ip)
+    user = get_current_user(request)
+    enforce_limits(db, ip, user)
 
     # 1) Ask Gemini for the structured analysis.
     result = analyze_listing(payload.text)
@@ -221,7 +271,7 @@ def analyze(
     result.id = record.id
 
     # 4) Count this successful analysis against the caps.
-    record_usage(db, ip)
+    record_usage(db, ip, user)
 
     # 5) Trigger background retrain when enough real data has accumulated.
     row_count = db.query(AnalysisRecord).count()
@@ -233,7 +283,7 @@ def analyze(
 @app.get("/api/usage", response_model=UsageStatus)
 def usage(request: Request, db: Session = Depends(get_db)) -> UsageStatus:
     """How much quota this visitor has left today (drives the UI counter)."""
-    return UsageStatus(**usage_status(db, client_ip(request)))
+    return UsageStatus(**usage_status(db, client_ip(request), get_current_user(request)))
 
 
 # ---------------------------------------------------------------------------

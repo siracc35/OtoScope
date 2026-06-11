@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { analyzeListing, getHistoryItem, getUsage } from "./api";
+import { analyzeListing, getHistoryItem, getMe, getUsage, setToken } from "./api";
 import AnalyzeForm from "./components/AnalyzeForm";
+import AuthModal from "./components/AuthModal";
 import BatchAnalyzeView from "./components/BatchAnalyzeView";
 import CompareView from "./components/CompareView";
 import HistoryView from "./components/HistoryView";
@@ -34,9 +35,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [usage, setUsage] = useState(null);
+  const [user, setUser] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     getUsage().then(setUsage).catch(() => {});
+    getMe().then(setUser).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -68,6 +72,12 @@ export default function App() {
       setLoading(false);
       getUsage().then(setUsage).catch(() => {});
     }
+  }
+
+  function handleLogout() {
+    setToken(null);
+    setUser(null);
+    getUsage().then(setUsage).catch(() => {});
   }
 
   const NAV_LABELS = {
@@ -112,8 +122,28 @@ export default function App() {
           >
             {theme === "dark" ? "☀ Açık" : "☾ Koyu"}
           </button>
+          {user ? (
+            <button className="nav__btn" onClick={handleLogout} title={user.email}>
+              Çıkış
+            </button>
+          ) : (
+            <button className="nav__btn nav__btn--active" onClick={() => setShowAuth(true)}>
+              Giriş Yap
+            </button>
+          )}
         </nav>
       </header>
+
+      {showAuth && (
+        <AuthModal
+          onSuccess={(u) => {
+            setUser(u);
+            setShowAuth(false);
+            getUsage().then(setUsage).catch(() => {});
+          }}
+          onClose={() => setShowAuth(false)}
+        />
+      )}
 
       {view === "analyze" && (
         <>

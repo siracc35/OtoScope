@@ -3,13 +3,21 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
+// --- Token storage ---
+export function getToken() { return localStorage.getItem("otoscope-token"); }
+export function setToken(t) { t ? localStorage.setItem("otoscope-token", t) : localStorage.removeItem("otoscope-token"); }
+
 // Shared helper: POST/GET JSON and turn non-2xx responses into thrown Errors,
 // pulling FastAPI's {detail: ...} message out when present.
 async function request(path, options = {}) {
+  const token = getToken();
   let resp;
   try {
     resp = await fetch(`${API_BASE}${path}`, {
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       ...options,
     });
   } catch {
@@ -99,4 +107,15 @@ export function getModelInfo() {
 // --- Batch ---
 export function batchAnalyze(texts) {
   return request("/api/batch", { method: "POST", body: JSON.stringify({ texts }) });
+}
+
+// --- Auth ---
+export function register(email, password) {
+  return request("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+export function login(email, password) {
+  return request("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+export function getMe() {
+  return request("/api/auth/me", { method: "GET" });
 }

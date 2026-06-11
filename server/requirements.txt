@@ -13,3 +13,5 @@ joblib
 python-telegram-bot
 lightgbm
 optuna
+bcrypt
+PyJWT

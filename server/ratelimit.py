@@ -37,7 +37,8 @@ def _int_env(name: str, default: int) -> int:
 
 
 PER_IP_DAILY_CAP = _int_env("RATE_LIMIT_PER_IP", 3)
-GLOBAL_DAILY_CAP = _int_env("RATE_LIMIT_GLOBAL", 18)
+PER_USER_DAILY_CAP = _int_env("RATE_LIMIT_PER_USER", 100)
+GLOBAL_DAILY_CAP = _int_env("RATE_LIMIT_GLOBAL", 200)
 
 # IPs that bypass the limits entirely — the operator, not untrusted visitors.
 # Defaults to localhost so local development is never throttled. In production,
@@ -81,12 +82,22 @@ def _ip_row(db: Session, ip: str, day: str) -> UsageRecord | None:
     )
 
 
-def enforce_limits(db: Session, ip: str) -> None:
+def get_identity(ip: str, user: dict | None) -> tuple[str, int]:
+    """Return (identity_key, daily_cap).
+    Logged-in users get a higher cap keyed by user ID; guests are keyed by IP.
+    """
+    if user and user.get("sub"):
+        return f"user:{user['sub']}", PER_USER_DAILY_CAP
+    return ip, PER_IP_DAILY_CAP
+
+
+def enforce_limits(db: Session, ip: str, user: dict | None = None) -> None:
     """Raise HTTP 429 if this request would exceed either cap. Call BEFORE doing
     the expensive Gemini work."""
     if is_exempt(ip):
         return  # operator / localhost — never throttled
 
+    identity, cap = get_identity(ip, user)
     day = _today()
 
     if _global_count(db, day) >= GLOBAL_DAILY_CAP:
@@ -95,38 +106,45 @@ def enforce_limits(db: Session, ip: str) -> None:
             detail=f"Günlük genel analiz limiti ({GLOBAL_DAILY_CAP}) doldu. Yarın tekrar dene.",
         )
 
-    row = _ip_row(db, ip, day)
-    if row and row.count >= PER_IP_DAILY_CAP:
+    row = _ip_row(db, identity, day)
+    if row and row.count >= cap:
+        if user:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Bugünkü analiz hakkın ({cap}) doldu. Yarın tekrar dene.",
+            )
         raise HTTPException(
             status_code=429,
-            detail=f"Bugünkü analiz hakkın ({PER_IP_DAILY_CAP}) doldu. Yarın tekrar dene.",
+            detail=f"Misafir günlük limit ({cap}) doldu. Giriş yaparak daha fazla analiz hakkı kazanabilirsin.",
         )
 
 
-def record_usage(db: Session, ip: str) -> None:
-    """Increment this IP's counter for today. Call AFTER a successful analysis."""
+def record_usage(db: Session, ip: str, user: dict | None = None) -> None:
+    """Increment the identity's counter for today. Call AFTER a successful analysis."""
     if is_exempt(ip):
-        return  # keep operator activity off the ledger (don't eat the global cap)
+        return
 
+    identity, _ = get_identity(ip, user)
     day = _today()
-    row = _ip_row(db, ip, day)
+    row = _ip_row(db, identity, day)
     if row is None:
-        db.add(UsageRecord(ip=ip, day=day, count=1))
+        db.add(UsageRecord(ip=identity, day=day, count=1))
     else:
         row.count += 1
     db.commit()
 
 
-def usage_status(db: Session, ip: str) -> dict:
-    """Snapshot of remaining quota for this IP — surfaced in the UI."""
+def usage_status(db: Session, ip: str, user: dict | None = None) -> dict:
+    """Snapshot of remaining quota — surfaced in the UI."""
+    identity, cap = get_identity(ip, user)
     day = _today()
-    row = _ip_row(db, ip, day)
+    row = _ip_row(db, identity, day)
     used = row.count if row else 0
     exempt = is_exempt(ip)
     return {
         "used": used,
-        "limit": PER_IP_DAILY_CAP,
-        "remaining": max(0, PER_IP_DAILY_CAP - used),
+        "limit": cap,
+        "remaining": max(0, cap - used),
         "global_used": _global_count(db, day),
         "global_limit": GLOBAL_DAILY_CAP,
         "exempt": exempt,
