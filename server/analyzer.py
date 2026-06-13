@@ -32,11 +32,11 @@ if not API_KEY:
     )
 
 MODELS = [
-    "gemini-3.1-flash-lite",
-    "gemini-3.5-flash",
-    "gemini-3-flash",
+    "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
-    "gemini-2.5-flash"
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-3-flash-preview",
 ]
 
 # A single client is created once at import time and reused for every request.
